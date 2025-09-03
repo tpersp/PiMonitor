@@ -4,7 +4,7 @@ set -euo pipefail
 # ===========================
 # Settings you can tweak
 # ===========================
-RESOLUTION="${RESOLUTION:-1920x1080}"   # e.g. 1920x1080 or 1280x720
+RESOLUTION="${RESOLUTION:-1280x720}"   # e.g. 1920x1080 or 1280x720
 FPS="${FPS:-30}"                        # 25 or 30 are safe choices
 HTTP_PORT="${HTTP_PORT:-8080}"          # ustreamer port
 SITE_PORT="${SITE_PORT:-80}"            # nginx port for the simple webpage
