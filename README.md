@@ -98,6 +98,20 @@ journalctl -u ustreamer -n 100 --no-pager
 
 ---
 
+## Future Ideas
+
+* Add basic authentication for the web page/stream (it should be open by default, and option to enable login)
+
+* Replace MJPEG with WebRTC or H.264 RTSP for lower latency and bandwidth
+
+* Add multi-device support (choose between multiple capture sticks/webcams)
+
+* Enable recording and/or screenshot functionality (save to pc)
+
+* Add a configuration web UI (change resolution/fps without editing systemd)
+
+---
+
 ## License
 
 MIT
