@@ -16,7 +16,7 @@ It sets up:
 ## Features
 
 * Auto-detects capture card via stable `/dev/v4l/by-id/*video-index0` symlink (no random `/dev/videoX` issues)
-* Default stream: **1920×1080 @ 30 fps MJPEG**
+* Default stream: **1280x720 @ 30 fps MJPEG**
 * Works well with Zero 2W + Wi-Fi (drop to **1280×720 @ 30 fps** if needed)
 * Landing page with embedded player + collapsible **admin notes**
 * Optional systemd unit to disable Wi-Fi powersave (helps streaming reliability)
@@ -56,7 +56,7 @@ It will:
   http://<pi-ip>:8080/stream
   ```
 
-Default resolution: `1920x1080`, FPS: `30`
+Default resolution: `1280x720`, FPS: `30`
 
 ---
 
