@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PiMonitor Configuration</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #111;
+      color: #eee;
+      margin: 0;
+      padding: 2rem;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.5rem;
+    }
+    form {
+      margin-bottom: 2rem;
+      max-width: 600px;
+    }
+    label {
+      display: block;
+      margin: 0.5rem 0;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.4rem;
+      margin-top: 0.2rem;
+      border-radius: 4px;
+      border: 1px solid #444;
+      background: #222;
+      color: #eee;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      border: none;
+      background: #2a7ae2;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1f64b2;
+    }
+    .message {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+    a { color: #9cf; }
+  </style>
+</head>
+<body>
+  <h1>PiMonitor Configuration</h1>
+  <p><a href="/">&larr; Back to live view</a></p>
+
+  <form id="configForm">
+    <label>
+      Resolution
+      <input type="text" name="RESOLUTION" placeholder="e.g. 1280x720" required />
+    </label>
+    <label>
+      Frames per second (FPS)
+      <input type="number" name="FPS" min="1" max="60" step="1" required />
+    </label>
+    <label>
+      Stream mode
+      <select name="STREAM_MODE">
+        <option value="MJPEG">MJPEG (HTTP)</option>
+        <option value="H264_RTSP">H.264 RTSP</option>
+      </select>
+    </label>
+    <label>
+      Device path
+      <input type="text" name="DEVICE" list="devices" required />
+      <datalist id="devices"></datalist>
+    </label>
+    <label>
+      MJPEG port (HTTP)
+      <input type="number" name="HTTP_PORT" min="1" max="65535" />
+    </label>
+    <label>
+      H.264 RTSP port
+      <input type="number" name="RTSP_PORT" min="1" max="65535" />
+    </label>
+    <label>
+      Site port
+      <input type="number" name="SITE_PORT" min="1" max="65535" />
+    </label>
+    <label>
+      Enable authentication
+      <input type="checkbox" name="ENABLE_AUTH" />
+    </label>
+    <label>
+      Username
+      <input type="text" name="AUTH_USERNAME" />
+    </label>
+    <label>
+      Password
+      <input type="password" name="AUTH_PASSWORD" />
+    </label>
+    <button type="submit">Save configuration</button>
+  </form>
+
+  <h2>Record video</h2>
+  <form id="recordForm">
+    <label>
+      Duration (seconds)
+      <input type="number" name="duration" min="1" value="10" />
+    </label>
+    <label>
+      Filename
+      <input type="text" name="filename" value="record.mp4" />
+    </label>
+    <button type="submit">Start recording</button>
+  </form>
+
+  <h2>Snapshot</h2>
+  <form id="snapshotForm">
+    <label>
+      Filename
+      <input type="text" name="filename" value="snapshot.jpg" />
+    </label>
+    <button type="submit">Take snapshot</button>
+  </form>
+
+  <div class="message" id="message"></div>
+
+  <script>
+  // Populate device list datalist
+  function loadDevices() {
+    fetch('/api/devices')
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        var list = document.getElementById('devices');
+        list.innerHTML = '';
+        data.devices.forEach(function(dev) {
+          var opt = document.createElement('option');
+          opt.value = dev;
+          list.appendChild(opt);
+        });
+      });
+  }
+
+  // Load current configuration into the form
+  function loadConfig() {
+    fetch('/api/config')
+      .then(function(res) { return res.json(); })
+      .then(function(cfg) {
+        var form = document.getElementById('configForm');
+        form.RESOLUTION.value = cfg.RESOLUTION || '';
+        form.FPS.value = cfg.FPS || '';
+        form.STREAM_MODE.value = cfg.STREAM_MODE || 'MJPEG';
+        form.DEVICE.value = cfg.DEVICE || '';
+        form.HTTP_PORT.value = cfg.HTTP_PORT || '';
+        form.RTSP_PORT.value = cfg.RTSP_PORT || '';
+        form.SITE_PORT.value = cfg.SITE_PORT || '';
+        form.ENABLE_AUTH.checked = cfg.ENABLE_AUTH === '1';
+        form.AUTH_USERNAME.value = cfg.AUTH_USERNAME || '';
+        form.AUTH_PASSWORD.value = cfg.AUTH_PASSWORD || '';
+      });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    loadDevices();
+    loadConfig();
+    var message = document.getElementById('message');
+
+    // Save configuration
+    document.getElementById('configForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var form = e.target;
+      var data = {
+        RESOLUTION: form.RESOLUTION.value,
+        FPS: form.FPS.value,
+        STREAM_MODE: form.STREAM_MODE.value,
+        DEVICE: form.DEVICE.value,
+        HTTP_PORT: form.HTTP_PORT.value,
+        RTSP_PORT: form.RTSP_PORT.value,
+        SITE_PORT: form.SITE_PORT.value,
+        ENABLE_AUTH: form.ENABLE_AUTH.checked ? '1' : '0',
+        AUTH_USERNAME: form.AUTH_USERNAME.value,
+        AUTH_PASSWORD: form.AUTH_PASSWORD.value
+      };
+      fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(function(res) { return res.json(); })
+        .then(function(resp) {
+          message.textContent = 'Configuration saved. Restarting stream...';
+          setTimeout(function() { message.textContent = ''; }, 4000);
+          loadConfig();
+        });
+    });
+
+    // Record video
+    document.getElementById('recordForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var fd = new FormData(e.target);
+      var data = {
+        duration: fd.get('duration'),
+        filename: fd.get('filename')
+      };
+      fetch('/api/record', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(function(res) { return res.json(); })
+        .then(function(resp) {
+          message.textContent = 'Recording saved to ' + resp.file;
+          setTimeout(function() { message.textContent = ''; }, 4000);
+        });
+    });
+
+    // Snapshot
+    document.getElementById('snapshotForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var fd = new FormData(e.target);
+      var data = {
+        filename: fd.get('filename')
+      };
+      fetch('/api/snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      }).then(function(res) { return res.json(); })
+        .then(function(resp) {
+          message.textContent = 'Snapshot saved to ' + resp.file;
+          setTimeout(function() { message.textContent = ''; }, 4000);
+        });
+    });
+  });
+  </script>
+</body>
+</html>

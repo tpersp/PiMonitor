@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PiMonitor Feed</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      background: #111;
+      color: #eee;
+      display: flex;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .wrap {
+      max-width: 96vw;
+    }
+    img, video {
+      max-width: 96vw;
+      max-height: 90vh;
+      display: block;
+      margin: 0 auto;
+      border-radius: 8px;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    .hint {
+      opacity: .7;
+      margin-top: .75rem;
+      font-size: .9rem;
+    }
+    a { color: #9cf; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>PiMonitor</h1>
+    <div id="stream-container"></div>
+    <p class="hint" id="hint"></p>
+    <p style="margin-top:1rem;"><a href="/config.html">Open configuration</a></p>
+  </div>
+  <script>
+  // Fetch current configuration to determine how to display the stream
+  fetch('/api/config')
+    .then(function(res) { return res.json(); })
+    .then(function(cfg) {
+      var container = document.getElementById('stream-container');
+      var hint = document.getElementById('hint');
+      if (cfg.STREAM_MODE === 'MJPEG') {
+        var img = document.createElement('img');
+        img.src = '/stream';
+        img.alt = 'Live stream';
+        container.appendChild(img);
+      } else {
+        // For H.264 RTSP we can't embed directly; instruct user to open in a player
+        hint.textContent = 'H.264 stream available at rtsp://' + window.location.hostname + ':' + cfg.RTSP_PORT + '/stream. Use VLC or another RTSP viewer.';
+      }
+    })
+    .catch(function() {
+      var hint = document.getElementById('hint');
+      hint.textContent = 'Unable to load configuration.';
+    });
+  </script>
+</body>
+</html>
