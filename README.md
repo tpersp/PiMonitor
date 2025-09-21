@@ -42,7 +42,7 @@ When finished, the installer prints the URLs for the landing page and the raw st
 ## Usage
 
 * **Landing page:** `http://<pi-ip>/` - Displays the live stream (MJPEG or H.264) and provides links to the configuration page.
-* **Configuration page:** `http://<pi-ip>/config/` - Adjust resolution, FPS, streaming mode, device, and authentication credentials.  You can also trigger recordings and snapshots here.
+* **Configuration page:** `http://<pi-ip>/config/` - Adjust resolution, FPS, streaming mode, device, and authentication credentials.  You can also trigger recordings, snapshots, and view/add Wi-Fi networks here.
 * **Raw stream:**
   * MJPEG: `http://<pi-ip>:<HTTP_PORT>/stream`
   * H.264 RTSP: `rtsp://<pi-ip>:<RTSP_PORT>/stream`
@@ -52,7 +52,7 @@ When finished, the installer prints the URLs for the landing page and the raw st
 
 ### Via Web UI
 
-The recommended way to change resolution, FPS, streaming mode or authentication is via the **Configuration** page.  
+The recommended way to change resolution, FPS, streaming mode or authentication is via the **Configuration** page.  You can also use it to pre-load or review Wi-Fi networks for other locations before you take the device offline.  
 The UI talks to a small API service running locally on the Pi and applies your changes automatically by editing the config file and restarting the streaming service.
 
 ### Via Environment Variables

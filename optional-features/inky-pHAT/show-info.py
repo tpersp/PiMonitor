@@ -50,10 +50,9 @@ mem_total = mem.total // (1024 * 1024)
 # Fonts
 try:
     font_big = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 28)
-    font_med = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
     font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
 except IOError:
-    font_big = font_med = font_small = ImageFont.load_default()
+    font_big = font_small = ImageFont.load_default()
 
 img = Image.new("P", (inky.WIDTH, inky.HEIGHT))
 draw = ImageDraw.Draw(img)
@@ -72,23 +71,23 @@ bbox = draw.textbbox((0, 0), top_text, font=font_big)
 w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
 x = (inky.WIDTH - w) // 2
 draw.text((x, y), top_text, inky.BLACK, font=font_big)
-y += h + 8
+y += h + 6
 
-# Hostname (left) + Uptime (right)
-draw.text((10, y), hostname, inky.BLACK, font=font_med)
-bbox = draw.textbbox((0, 0), uptime, font=font_med)
+# Hostname (left) + Uptime (right) in small font
+draw.text((10, y), hostname, inky.BLACK, font=font_small)
+bbox = draw.textbbox((0, 0), uptime, font=font_small)
 w = bbox[2] - bbox[0]
-draw.text((inky.WIDTH - w - 10, y), uptime, inky.BLACK, font=font_med)
-y += 24
+draw.text((inky.WIDTH - w - 10, y), uptime, inky.BLACK, font=font_small)
+y += 20
 
-# SSID line (always show)
+# SSID line (always show, small font, centered)
 ssid_text = f"SSID: {ssid}" if ssid else "SSID: ????"
 bbox = draw.textbbox((0, 0), ssid_text, font=font_small)
 w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
 x = (inky.WIDTH - w) // 2
 draw.text((x, y), ssid_text, inky.BLACK, font=font_small)
 
-# CPU left, MEM right (bottom line)
+# CPU left, MEM right (bottom line, small font)
 cpu_text = f"CPU: {cpu:.0f}%"
 mem_text = f"MEM: {mem_used}/{mem_total}MB"
 

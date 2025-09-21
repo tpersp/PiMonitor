@@ -51,6 +51,42 @@
       font-size: 0.9rem;
       opacity: 0.8;
     }
+    .message.success {
+      color: #8ddda0;
+    }
+    .message.error {
+      color: #ff8a8a;
+    }
+    .message.info {
+      color: #9cc7ff;
+    }
+    .wifi-networks {
+      margin-top: 1rem;
+    }
+    .wifi-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+    }
+    .wifi-table th,
+    .wifi-table td {
+      border: 1px solid #333;
+      padding: 0.4rem;
+      text-align: left;
+    }
+    .wifi-table tr.current {
+      background: rgba(42, 122, 226, 0.18);
+    }
+    .wifi-table .tag {
+      display: inline-block;
+      background: #2a7ae2;
+      color: #fff;
+      padding: 0 0.35rem;
+      border-radius: 3px;
+      font-size: 0.7rem;
+      margin-left: 0.4rem;
+    }
     a { color: #9cf; }
   </style>
 </head>
@@ -128,9 +164,89 @@
     <button type="submit">Take snapshot</button>
   </form>
 
+  <h2>Add Wi-Fi Network</h2>
+  <form id="wifiForm">
+    <label>
+      SSID
+      <input type="text" name="ssid" required />
+    </label>
+    <label>
+      Password (leave blank for open network)
+      <input type="password" name="psk" />
+    </label>
+    <label>
+      <input type="checkbox" name="hidden" />
+      Hidden network (broadcast disabled)
+    </label>
+    <button type="submit">Add Wi-Fi network</button>
+  </form>
+
+  <div id="wifiNetworks" class="wifi-networks"></div>
+
   <div class="message" id="message"></div>
 
   <script>
+  function escapeHtml(value) {
+    if (value === undefined || value === null) {
+      return '';
+    }
+    var div = document.createElement('div');
+    div.textContent = String(value);
+    return div.innerHTML;
+  }
+
+  function handleJson(res) {
+    return res.json().catch(function() { return {}; }).then(function(data) {
+      return { ok: res.ok, status: res.status, data: data };
+    });
+  }
+
+  function loadWifiNetworks() {
+    var container = document.getElementById('wifiNetworks');
+    if (!container) {
+      return;
+    }
+    container.innerHTML = '<p>Loading saved networks...</p>';
+    fetch('/api/wifi')
+      .then(handleJson)
+      .then(function(result) {
+        if (!result.ok || !result.data || result.data.status !== 'ok') {
+          var msg = (result.data && result.data.error) ? result.data.error : 'Unable to load saved Wi-Fi networks.';
+          container.innerHTML = '<p class="message error">' + escapeHtml(msg) + '</p>';
+          return;
+        }
+        var networks = result.data.networks || [];
+        if (!networks.length) {
+          container.innerHTML = '<p>No saved networks found.</p>';
+          return;
+        }
+        var rows = networks.map(function(net) {
+          var ssid = escapeHtml(net.ssid || '(unknown)');
+          var security = escapeHtml(net.security || 'unknown');
+          var hidden = net.hidden ? 'Yes' : 'No';
+          var statusParts = [];
+          if (net.is_current) {
+            statusParts.push('Connected');
+          }
+          if (String(net.disabled) === '1') {
+            statusParts.push('Disabled');
+          }
+          if (net.priority !== undefined && net.priority !== null && net.priority !== '') {
+            statusParts.push('Priority ' + net.priority);
+          }
+          var statusText = escapeHtml(statusParts.join(' | ') || 'Saved');
+          var tag = net.is_current ? '<span class="tag">current</span>' : '';
+          var rowClass = net.is_current ? ' class="current"' : '';
+          return '<tr' + rowClass + '><td>' + ssid + tag + '</td><td>' + security + '</td><td>' + hidden + '</td><td>' + statusText + '</td></tr>';
+        }).join('');
+        container.innerHTML = '<table class="wifi-table"><thead><tr><th>SSID</th><th>Security</th><th>Hidden</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
+      })
+      .catch(function(err) {
+        var message = err && err.message ? err.message : 'Failed to load saved Wi-Fi networks.';
+        container.innerHTML = '<p class="message error">' + escapeHtml(message) + '</p>';
+      });
+  }
+
   // Populate device list datalist
   function loadDevices() {
     fetch('/api/devices')
@@ -168,73 +284,187 @@
   document.addEventListener('DOMContentLoaded', function() {
     loadDevices();
     loadConfig();
+    loadWifiNetworks();
     var message = document.getElementById('message');
+    var messageTimer = null;
 
-    // Save configuration
-    document.getElementById('configForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      var form = e.target;
-      var data = {
-        RESOLUTION: form.RESOLUTION.value,
-        FPS: form.FPS.value,
-        STREAM_MODE: form.STREAM_MODE.value,
-        DEVICE: form.DEVICE.value,
-        HTTP_PORT: form.HTTP_PORT.value,
-        RTSP_PORT: form.RTSP_PORT.value,
-        SITE_PORT: form.SITE_PORT.value,
-        ENABLE_AUTH: form.ENABLE_AUTH.checked ? '1' : '0',
-        AUTH_USERNAME: form.AUTH_USERNAME.value,
-        AUTH_PASSWORD: form.AUTH_PASSWORD.value
-      };
-      fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }).then(function(res) { return res.json(); })
-        .then(function(resp) {
-          message.textContent = 'Configuration saved. Restarting stream...';
-          setTimeout(function() { message.textContent = ''; }, 4000);
-          loadConfig();
-        });
-    });
+    function showMessage(text, type) {
+      if (!message) {
+        return;
+      }
+      if (messageTimer) {
+        clearTimeout(messageTimer);
+        messageTimer = null;
+      }
+      var classes = ['message'];
+      if (type) {
+        classes.push(type);
+      }
+      message.className = classes.join(' ');
+      message.textContent = text || '';
+      if (text) {
+        messageTimer = setTimeout(function() {
+          message.textContent = '';
+          message.className = 'message';
+          messageTimer = null;
+        }, 5000);
+      }
+    }
 
-    // Record video
-    document.getElementById('recordForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      var fd = new FormData(e.target);
-      var data = {
-        duration: fd.get('duration'),
-        filename: fd.get('filename')
-      };
-      fetch('/api/record', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }).then(function(res) { return res.json(); })
-        .then(function(resp) {
-          message.textContent = 'Recording saved to ' + resp.file;
-          setTimeout(function() { message.textContent = ''; }, 4000);
-        });
-    });
+    var configForm = document.getElementById('configForm');
+    if (configForm) {
+      configForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var form = e.target;
+        var data = {
+          RESOLUTION: form.RESOLUTION.value,
+          FPS: form.FPS.value,
+          STREAM_MODE: form.STREAM_MODE.value,
+          DEVICE: form.DEVICE.value,
+          HTTP_PORT: form.HTTP_PORT.value,
+          RTSP_PORT: form.RTSP_PORT.value,
+          SITE_PORT: form.SITE_PORT.value,
+          ENABLE_AUTH: form.ENABLE_AUTH.checked ? '1' : '0',
+          AUTH_USERNAME: form.AUTH_USERNAME.value,
+          AUTH_PASSWORD: form.AUTH_PASSWORD.value
+        };
+        fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+          .then(handleJson)
+          .then(function(result) {
+            var resp = result.data || {};
+            if (!result.ok || resp.status !== 'ok') {
+              var err = resp.error || 'unknown error';
+              showMessage('Failed to save configuration: ' + err, 'error');
+              return;
+            }
+            showMessage('Configuration saved. Restarting stream...', 'success');
+            loadConfig();
+          })
+          .catch(function(err) {
+            var messageText = err && err.message ? err.message : String(err);
+            showMessage('Failed to save configuration: ' + messageText, 'error');
+          });
+      });
+    }
 
-    // Snapshot
-    document.getElementById('snapshotForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      var fd = new FormData(e.target);
-      var data = {
-        filename: fd.get('filename')
-      };
-      fetch('/api/snapshot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }).then(function(res) { return res.json(); })
-        .then(function(resp) {
-          message.textContent = 'Snapshot saved to ' + resp.file;
-          setTimeout(function() { message.textContent = ''; }, 4000);
-        });
-    });
+    var recordForm = document.getElementById('recordForm');
+    if (recordForm) {
+      recordForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var fd = new FormData(e.target);
+        var data = {
+          duration: fd.get('duration'),
+          filename: fd.get('filename')
+        };
+        fetch('/api/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+          .then(handleJson)
+          .then(function(result) {
+            var resp = result.data || {};
+            if (!result.ok || resp.status !== 'ok') {
+              var err = resp.error || 'unknown error';
+              showMessage('Recording failed: ' + err, 'error');
+              return;
+            }
+            showMessage('Recording saved to ' + (resp.file || 'file'), 'success');
+          })
+          .catch(function(err) {
+            var messageText = err && err.message ? err.message : String(err);
+            showMessage('Recording failed: ' + messageText, 'error');
+          });
+      });
+    }
+
+    var snapshotForm = document.getElementById('snapshotForm');
+    if (snapshotForm) {
+      snapshotForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var fd = new FormData(e.target);
+        var data = {
+          filename: fd.get('filename')
+        };
+        fetch('/api/snapshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+          .then(handleJson)
+          .then(function(result) {
+            var resp = result.data || {};
+            if (!result.ok || resp.status !== 'ok') {
+              var err = resp.error || 'unknown error';
+              showMessage('Snapshot failed: ' + err, 'error');
+              return;
+            }
+            showMessage('Snapshot saved to ' + (resp.file || 'file'), 'success');
+          })
+          .catch(function(err) {
+            var messageText = err && err.message ? err.message : String(err);
+            showMessage('Snapshot failed: ' + messageText, 'error');
+          });
+      });
+    }
+
+    var wifiForm = document.getElementById('wifiForm');
+    if (wifiForm) {
+      wifiForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var form = e.target;
+        var payload = {
+          ssid: form.ssid.value.trim(),
+          psk: form.psk.value,
+          hidden: form.hidden.checked
+        };
+        fetch('/api/wifi', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(handleJson)
+          .then(function(result) {
+            var resp = result.data || {};
+            if (!result.ok) {
+              var httpError = resp.error || ('HTTP ' + result.status);
+              showMessage('Failed to add Wi-Fi network: ' + httpError, 'error');
+              return;
+            }
+            if (resp.status === 'ok') {
+              var label = resp.ssid || payload.ssid || '(unknown)';
+              var note = 'Added Wi-Fi network "' + label + '"';
+              if (resp.reconfigured) {
+                note += ' and reloaded Wi-Fi.';
+              } else {
+                note += '. Reload Wi-Fi manually to activate it.';
+              }
+              showMessage(note, 'success');
+              wifiForm.reset();
+              loadWifiNetworks();
+              return;
+            }
+            if (resp.status === 'exists') {
+              var existing = resp.ssid || payload.ssid || '(unknown)';
+              showMessage('Wi-Fi network "' + existing + '" already exists.', 'info');
+              loadWifiNetworks();
+              return;
+            }
+            var errorText = resp.error || 'unknown error';
+            showMessage('Failed to add Wi-Fi network: ' + errorText, 'error');
+          })
+          .catch(function(err) {
+            var messageText = err && err.message ? err.message : String(err);
+            showMessage('Failed to add Wi-Fi network: ' + messageText, 'error');
+          });
+      });
+    }
   });
   </script>
 </body>
 </html>
+
