@@ -13,11 +13,30 @@ The Pimoroni Inky pHAT e-ink display can show a rotating snapshot of your PiMoni
 
 ## Install the status script
 
-1. Create `~/Pimoroni/inky/examples/show-info.py` and copy in the version from this repository (`optional-features/inky-pHAT/show-info.py`). The service created below expects the file to live in that location.
-2. Make sure the script is executable:
+1. Ensure the Pimoroni examples directory exists:
 
    ```bash
-   chmod +x ~/Pimoroni/inky/examples/show-info.py
+   mkdir -p ~/Pimoroni/inky/examples
+   ```
+
+2. Point the example the service uses at the copy in this repository so it tracks future `git pull` updates:
+
+   ```bash
+   ln -sf /home/pi/PiMonitor/optional-features/inky-pHAT/show-info.py ~/Pimoroni/inky/examples/show-info.py
+   ```
+
+   If your environment does not permit symbolic links, copy the file instead:
+
+   ```bash
+   cp /home/pi/PiMonitor/optional-features/inky-pHAT/show-info.py ~/Pimoroni/inky/examples/show-info.py
+   ```
+
+   Using a copy works, but you will need to repeat the `cp` after pulling new changes.
+
+3. Mark the repository version executable (the symlink inherits the same permission):
+
+   ```bash
+   chmod +x /home/pi/PiMonitor/optional-features/inky-pHAT/show-info.py
    ```
 
 ## Systemd service and timer
@@ -59,4 +78,4 @@ The timer runs the service once every five minutes, refreshing the data shown on
 
 ## Updating the script
 
-You can edit `show-info.py` to tweak the layout or add metrics (for example, disk usage or network statistics). After updating the file, call `sudo systemctl start inky-info.service` to test your changes immediately.
+You can edit `show-info.py` to tweak the layout or add metrics (for example, disk usage or network statistics). Because the service uses a symlink into this repository, running `git pull` brings those updates onto the display automatically after the next timer run. After changing the file, call `sudo systemctl start inky-info.service` to test your changes immediately.
