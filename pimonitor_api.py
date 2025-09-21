@@ -261,9 +261,7 @@ def api_wifi():
         block = generate_network_block(ssid, psk_value, hidden)
         try:
             with open(WPA_SUPPLICANT_CONF, 'a', encoding='utf-8') as f:
-                f.write('
-' + block + '
-')
+                f.write('\n' + block + '\n')
         except Exception as exc:
             return jsonify({"status": "error", "error": str(exc)}), 500
         reconfigured = reconfigure_wifi()
