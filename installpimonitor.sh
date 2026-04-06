@@ -260,13 +260,17 @@ fi
 
 # Compute redirect directive for the /stream endpoint based on the stream mode.
 if [ "$STREAM_MODE" = "MJPEG" ]; then
-  # MJPEG uses an HTTP backend served by uStreamer
-  # Use a single backslash to escape the dollar sign so that nginx sees $host
-  STREAM_REDIRECT="return 302 http://\$host:${HTTP_PORT}/stream;"
+  STREAM_DIRECTIVES=$(cat <<EOF
+proxy_http_version 1.1;
+        proxy_pass http://127.0.0.1:${HTTP_PORT}/stream;
+        proxy_buffering off;
+        proxy_request_buffering off;
+EOF
+  )
   HLS_DIRECTIVES="location /hls/ { return 404; }"
 else
   # H.264 uses an RTSP backend served by v4l2rtspserver
-  STREAM_REDIRECT="return 302 rtsp://\$host:${RTSP_PORT}/stream;"
+  STREAM_DIRECTIVES="return 302 rtsp://\$host:${RTSP_PORT}/stream;"
   if [ "$ENABLE_HLS" = "1" ]; then
     HLS_DIRECTIVES=$(cat <<EOF
 location /hls/ {
@@ -299,7 +303,7 @@ server {
 
     # Redirect /stream to the backend stream (MJPEG or RTSP)
     location /stream {
-        $STREAM_REDIRECT
+        $STREAM_DIRECTIVES
     }
 
     $HLS_DIRECTIVES

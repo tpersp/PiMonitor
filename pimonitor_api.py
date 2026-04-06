@@ -179,10 +179,16 @@ def render_nginx_config(cfg: dict[str, str]) -> str:
         )
 
     if stream_mode == 'MJPEG':
-        stream_redirect = f'return 302 http://$host:{cfg.get("HTTP_PORT", "8080")}/stream;'
+        http_port = cfg.get('HTTP_PORT', '8080')
+        stream_directives = (
+            'proxy_http_version 1.1;\n'
+            f'        proxy_pass http://127.0.0.1:{http_port}/stream;\n'
+            '        proxy_buffering off;\n'
+            '        proxy_request_buffering off;'
+        )
         hls_directives = '    location /hls/ { return 404; }'
     else:
-        stream_redirect = f'return 302 rtsp://$host:{cfg.get("RTSP_PORT", "8554")}/stream;'
+        stream_directives = f'return 302 rtsp://$host:{cfg.get("RTSP_PORT", "8554")}/stream;'
         if cfg.get('ENABLE_HLS') == '1':
             rtsp_port = cfg.get('RTSP_PORT', '8554')
             hls_directives = (
@@ -209,7 +215,7 @@ def render_nginx_config(cfg: dict[str, str]) -> str:
     }}
 
     location /stream {{
-        {stream_redirect}
+        {stream_directives}
     }}
 
 {hls_directives}

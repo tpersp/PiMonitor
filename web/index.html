@@ -198,6 +198,34 @@
     container.appendChild(p);
   }
 
+  function tryHlsFallback(container, links, hint, siteOrigin) {
+    fetch('/hls/unicast.m3u8', { cache: 'no-store' })
+      .then(function(res) {
+        if (!res.ok) {
+          throw new Error('HLS unavailable');
+        }
+        return res.text();
+      })
+      .then(function(body) {
+        if (!body || body.trim().length < 4) {
+          throw new Error('Empty HLS playlist');
+        }
+        container.innerHTML = '';
+        var video = document.createElement('video');
+        video.controls = true;
+        video.autoplay = true;
+        video.muted = true;
+        video.playsInline = true;
+        video.src = '/hls/unicast.m3u8';
+        container.appendChild(video);
+        hint.textContent = 'The MJPEG preview was unavailable, so PiMonitor switched to the browser HLS feed.';
+        addParagraph(links, 'Browser HLS URL: <code>' + siteOrigin + '/hls/unicast.m3u8</code>');
+      })
+      .catch(function() {
+        hint.textContent = 'Browser preview is unavailable right now. Check the info page for RTSP or HLS connection details.';
+      });
+  }
+
   fetch('/api/config')
     .then(function(res) { return res.json(); })
     .then(function(cfg) {
@@ -217,6 +245,9 @@
         var img = document.createElement('img');
         img.src = '/stream';
         img.alt = 'Live stream';
+        img.addEventListener('error', function() {
+          tryHlsFallback(container, links, hint, siteOrigin);
+        });
         container.appendChild(img);
         hint.textContent = 'MJPEG mode is the simplest option for browser viewing and troubleshooting.';
         addParagraph(links, 'Browser stream: <code>' + siteOrigin + '/stream</code>');
@@ -237,6 +268,7 @@
           addParagraph(links, 'Browser HLS URL: <code>' + siteOrigin + '/hls/unicast.m3u8</code>');
         } else {
           addParagraph(links, 'HLS browser playback is currently disabled.');
+          tryHlsFallback(container, links, hint, siteOrigin);
         }
       }
     })
