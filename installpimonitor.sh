@@ -187,6 +187,7 @@ install -d /var/www/pimonitor
 # Copy index.html and config.html from the repository
 cp "$SCRIPT_DIR/web/index.html" /var/www/pimonitor/index.html
 cp "$SCRIPT_DIR/web/config.html" /var/www/pimonitor/config.html
+cp "$SCRIPT_DIR/web/info.html" /var/www/pimonitor/info.html
 
 # Copy helper scripts for recordings/snapshots into /usr/local/bin
 install -m 0755 "$SCRIPT_DIR/scripts/record_stream.sh" /usr/local/bin/pimonitor-record

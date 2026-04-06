@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PiMonitor Info</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0e1116;
+      --panel: #171c24;
+      --panel-border: #2b3442;
+      --text: #eef3fa;
+      --muted: #aeb9c8;
+      --accent: #59b0ff;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(89, 176, 255, 0.16), transparent 28rem),
+        linear-gradient(180deg, #10151d, var(--bg));
+    }
+    .shell {
+      width: min(1100px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 1rem 0 2rem;
+    }
+    .menu {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.85rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      background: rgba(23, 28, 36, 0.92);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 1rem;
+    }
+    .menu a {
+      color: var(--text);
+      text-decoration: none;
+      padding: 0.55rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .menu a.active {
+      background: rgba(89, 176, 255, 0.14);
+      border-color: rgba(89, 176, 255, 0.35);
+    }
+    .hero,
+    .panel {
+      background: rgba(23, 28, 36, 0.94);
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
+    }
+    .hero {
+      margin-top: 1rem;
+      padding: 1.4rem;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin: 0 0 0.75rem;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3rem);
+    }
+    .intro,
+    .panel p,
+    .panel li {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .panel {
+      padding: 1.1rem;
+    }
+    h2 {
+      margin: 0 0 0.8rem;
+      font-size: 1.1rem;
+    }
+    ul, ol {
+      margin: 0.7rem 0 0;
+      padding-left: 1.2rem;
+    }
+    code {
+      display: inline-block;
+      max-width: 100%;
+      word-break: break-all;
+      background: rgba(7, 11, 16, 0.9);
+      border: 1px solid #273140;
+      border-radius: 8px;
+      padding: 0.18rem 0.45rem;
+      color: #d9f0ff;
+    }
+    .url-list p {
+      margin: 0.8rem 0;
+    }
+    @media (max-width: 860px) {
+      .shell {
+        width: min(100% - 1rem, 1100px);
+      }
+      .menu {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="menu" aria-label="Main navigation">
+      <a href="/">Live view</a>
+      <a href="/config.html">Configuration</a>
+      <a class="active" href="/info.html">Info</a>
+    </nav>
+
+    <section class="hero">
+      <p class="eyebrow">PiMonitor</p>
+      <h1>Info and how to use it</h1>
+      <p class="intro">This page explains the main URLs, which page to use for what, and how to connect from another device. The URL list below updates itself from the current PiMonitor configuration.</p>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h2>Main pages</h2>
+        <ol>
+          <li><strong>Live view</strong>: open the landing page to see the current feed quickly.</li>
+          <li><strong>Configuration</strong>: use the configuration page to change resolution, FPS, capture device, stream mode, Wi-Fi, recordings, and snapshots.</li>
+          <li><strong>Info</strong>: use this page when you need the direct stream URLs or want to remember how the app is supposed to be used.</li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h2>Connection URLs</h2>
+        <div class="url-list" id="urlList">
+          <p>Loading current URLs...</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>How to connect from another device</h2>
+        <ul>
+          <li>For VLC on a PC, use the RTSP URL shown here when PiMonitor is in <code>H264_RTSP</code> mode.</li>
+          <li>For quick browser viewing, MJPEG mode is the simplest because it plays directly on the live view page.</li>
+          <li>If HLS is enabled, open the HLS URL in a browser or media player that supports `.m3u8` playlists.</li>
+          <li>If a stream is not working, first confirm the mode and ports on the configuration page.</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Typical workflow</h2>
+        <ol>
+          <li>Connect the HDMI capture card or webcam.</li>
+          <li>Open Configuration and choose the device, resolution, and stream mode.</li>
+          <li>Save the configuration and wait a few seconds for the stream service to restart.</li>
+          <li>Open Live view to confirm the feed locally.</li>
+          <li>Open the RTSP or HLS URL from another device if you want remote viewing.</li>
+        </ol>
+      </section>
+
+      <section class="panel">
+        <h2>Useful notes</h2>
+        <ul>
+          <li>MJPEG is usually best for quick testing and browser viewing.</li>
+          <li>RTSP is usually best for VLC and other dedicated video clients.</li>
+          <li>Some webcams work better with auto-detected format, while others may need a manual format selection from the configuration page.</li>
+          <li>Saved Wi-Fi networks can be added and switched from the configuration page.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <script>
+  function addLine(container, label, value) {
+    var p = document.createElement('p');
+    p.innerHTML = '<strong>' + label + ':</strong> <code>' + value + '</code>';
+    container.appendChild(p);
+  }
+
+  fetch('/api/config')
+    .then(function(res) { return res.json(); })
+    .then(function(cfg) {
+      var container = document.getElementById('urlList');
+      var host = window.location.hostname;
+      var origin = window.location.origin;
+      container.innerHTML = '';
+
+      addLine(container, 'Live view page', origin + '/');
+      addLine(container, 'Configuration page', origin + '/config.html');
+      addLine(container, 'Info page', origin + '/info.html');
+
+      if (cfg.STREAM_MODE === 'MJPEG') {
+        addLine(container, 'Browser stream', origin + '/stream');
+        addLine(container, 'Direct MJPEG stream', 'http://' + host + ':' + cfg.HTTP_PORT + '/stream');
+      } else {
+        addLine(container, 'RTSP stream for VLC', 'rtsp://' + host + ':' + cfg.RTSP_PORT + '/stream');
+        if (cfg.ENABLE_HLS === '1') {
+          addLine(container, 'Browser HLS stream', origin + '/hls/unicast.m3u8');
+        }
+      }
+    })
+    .catch(function() {
+      document.getElementById('urlList').innerHTML = '<p>Unable to load current configuration.</p>';
+    });
+  </script>
+</body>
+</html>

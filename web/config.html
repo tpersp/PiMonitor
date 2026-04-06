@@ -5,213 +5,338 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PiMonitor Configuration</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #0e1116;
+      --panel: #171c24;
+      --panel-border: #2b3442;
+      --text: #eef3fa;
+      --muted: #aeb9c8;
+      --accent: #59b0ff;
+      --accent-strong: #2d8fe6;
+      --success: #8ddda0;
+      --error: #ff8a8a;
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: system-ui, sans-serif;
-      background: #111;
-      color: #eee;
+      background:
+        radial-gradient(circle at top, rgba(89, 176, 255, 0.16), transparent 28rem),
+        linear-gradient(180deg, #10151d, var(--bg));
+      color: var(--text);
       margin: 0;
-      padding: 2rem;
+    }
+    .shell {
+      width: min(1100px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 1rem 0 2rem;
+    }
+    .menu {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.85rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      background: rgba(23, 28, 36, 0.92);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 1rem;
+      z-index: 2;
+    }
+    .menu a {
+      color: var(--text);
+      text-decoration: none;
+      padding: 0.55rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .menu a.active {
+      background: rgba(89, 176, 255, 0.14);
+      border-color: rgba(89, 176, 255, 0.35);
+    }
+    .hero,
+    .panel {
+      background: rgba(23, 28, 36, 0.94);
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
+    }
+    .hero {
+      margin-top: 1rem;
+      padding: 1.4rem;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin: 0 0 0.75rem;
     }
     h1 {
-      margin-top: 0;
-      font-size: 1.5rem;
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3rem);
+    }
+    .intro {
+      color: var(--muted);
+      max-width: 48rem;
+      line-height: 1.5;
+      margin: 0.75rem 0 0;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .panel {
+      padding: 1.1rem;
+    }
+    h2 {
+      margin: 0 0 0.8rem;
+      font-size: 1.1rem;
     }
     form {
-      margin-bottom: 2rem;
-      max-width: 600px;
+      margin: 0;
     }
     label {
       display: block;
-      margin: 0.5rem 0;
+      margin: 0.7rem 0;
     }
     input, select {
       width: 100%;
-      padding: 0.4rem;
-      margin-top: 0.2rem;
-      border-radius: 4px;
-      border: 1px solid #444;
-      background: #222;
-      color: #eee;
+      padding: 0.55rem 0.65rem;
+      margin-top: 0.25rem;
+      border-radius: 10px;
+      border: 1px solid #3a4557;
+      background: #10151d;
+      color: var(--text);
+    }
+    input[type="checkbox"] {
+      width: auto;
+      margin-right: 0.45rem;
     }
     button {
       margin-top: 1rem;
-      padding: 0.5rem 1rem;
+      padding: 0.75rem 1rem;
       border: none;
-      background: #2a7ae2;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
       color: #fff;
-      border-radius: 4px;
+      border-radius: 12px;
       cursor: pointer;
+      font-weight: 600;
     }
     button:hover {
-      background: #1f64b2;
+      filter: brightness(1.05);
     }
     .message {
       margin-top: 1rem;
-      font-size: 0.9rem;
-      opacity: 0.8;
+      font-size: 0.95rem;
+      min-height: 1.3rem;
+      color: var(--muted);
     }
     .message.success {
-      color: #8ddda0;
+      color: var(--success);
     }
     .message.error {
-      color: #ff8a8a;
+      color: var(--error);
     }
     .message.info {
-      color: #9cc7ff;
-    }
-    .wifi-networks {
-      margin-top: 1rem;
+      color: var(--accent);
     }
     .wifi-table {
       width: 100%;
       border-collapse: collapse;
       margin-top: 0.5rem;
-      font-size: 0.9rem;
+      font-size: 0.92rem;
     }
     .wifi-table th,
     .wifi-table td {
-      border: 1px solid #333;
-      padding: 0.4rem;
+      border: 1px solid #333d4d;
+      padding: 0.55rem;
       text-align: left;
     }
     .wifi-table tr.current {
-      background: rgba(42, 122, 226, 0.18);
+      background: rgba(89, 176, 255, 0.12);
     }
     .wifi-table .tag {
       display: inline-block;
-      background: #2a7ae2;
-      color: #fff;
-      padding: 0 0.35rem;
-      border-radius: 3px;
-      font-size: 0.7rem;
-      margin-left: 0.4rem;
+      background: rgba(89, 176, 255, 0.18);
+      color: #d9f0ff;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      margin-left: 0.45rem;
+      border: 1px solid rgba(89, 176, 255, 0.3);
     }
     .wifi-actions {
       white-space: nowrap;
     }
     .wifi-actions button {
       margin-top: 0;
-      padding: 0.3rem 0.6rem;
+      padding: 0.45rem 0.7rem;
       font-size: 0.85rem;
     }
-    a { color: #9cf; }
+    .helper {
+      color: var(--muted);
+      line-height: 1.5;
+      margin: 0 0 1rem;
+    }
+    a {
+      color: #b7ddff;
+    }
+    @media (max-width: 860px) {
+      .shell {
+        width: min(100% - 1rem, 1100px);
+      }
+      .menu {
+        position: static;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>PiMonitor Configuration</h1>
-  <p><a href="/">&larr; Back to live view</a></p>
+  <div class="shell">
+    <nav class="menu" aria-label="Main navigation">
+      <a href="/">Live view</a>
+      <a class="active" href="/config.html">Configuration</a>
+      <a href="/info.html">Info</a>
+    </nav>
 
-  <form id="configForm">
-    <label>
-      Resolution
-      <input type="text" name="RESOLUTION" placeholder="e.g. 1280x720" required />
-    </label>
-    <label>
-      Frames per second (FPS)
-      <input type="number" name="FPS" min="1" max="60" step="1" required />
-    </label>
-    <label>
-      Stream mode
-      <select name="STREAM_MODE">
-        <option value="MJPEG">MJPEG (HTTP)</option>
-        <option value="H264_RTSP">H.264 RTSP</option>
-      </select>
-    </label>
-    <label>
-      Device path
-      <input type="text" name="DEVICE" list="devices" required />
-      <datalist id="devices"></datalist>
-    </label>
-    <label>
-      Capture format
-      <select name="INPUT_FORMAT">
-        <option value="AUTO">Auto-detect (recommended)</option>
-        <option value="MJPG">MJPG / MJPEG</option>
-        <option value="JPEG">JPEG</option>
-        <option value="H264">H.264</option>
-        <option value="HEVC">HEVC / H.265</option>
-        <option value="YUYV">YUYV</option>
-        <option value="UYVY">UYVY</option>
-      </select>
-    </label>
-    <label>
-      MJPEG port (HTTP)
-      <input type="number" name="HTTP_PORT" min="1" max="65535" />
-    </label>
-    <label>
-      H.264 RTSP port
-      <input type="number" name="RTSP_PORT" min="1" max="65535" />
-    </label>
-    <label>
-      Enable browser HLS for RTSP mode
-      <input type="checkbox" name="ENABLE_HLS" />
-    </label>
-    <label>
-      HLS segment duration (seconds)
-      <input type="number" name="HLS_SEGMENT_DURATION" min="1" max="30" step="1" />
-    </label>
-    <label>
-      Site port
-      <input type="number" name="SITE_PORT" min="1" max="65535" />
-    </label>
-    <label>
-      Enable authentication
-      <input type="checkbox" name="ENABLE_AUTH" />
-    </label>
-    <label>
-      Username
-      <input type="text" name="AUTH_USERNAME" />
-    </label>
-    <label>
-      Password
-      <input type="password" name="AUTH_PASSWORD" />
-    </label>
-    <button type="submit">Save configuration</button>
-  </form>
+    <section class="hero">
+      <p class="eyebrow">PiMonitor</p>
+      <h1>Configuration</h1>
+      <p class="intro">Change capture settings, switch between MJPEG and RTSP, save Wi-Fi networks, and manage recordings from here. For a simple guide and ready-to-copy stream URLs, open the info page.</p>
+    </section>
 
-  <h2>Record video</h2>
-  <form id="recordForm">
-    <label>
-      Duration (seconds)
-      <input type="number" name="duration" min="1" value="10" />
-    </label>
-    <label>
-      Filename
-      <input type="text" name="filename" value="record.mp4" />
-    </label>
-    <button type="submit">Start recording</button>
-  </form>
+    <div class="grid">
+      <section class="panel">
+        <h2>Stream settings</h2>
+        <form id="configForm">
+          <label>
+            Resolution
+            <input type="text" name="RESOLUTION" placeholder="e.g. 1280x720" required />
+          </label>
+          <label>
+            Frames per second (FPS)
+            <input type="number" name="FPS" min="1" max="60" step="1" required />
+          </label>
+          <label>
+            Stream mode
+            <select name="STREAM_MODE">
+              <option value="MJPEG">MJPEG (HTTP)</option>
+              <option value="H264_RTSP">H.264 RTSP</option>
+            </select>
+          </label>
+          <label>
+            Device path
+            <input type="text" name="DEVICE" list="devices" required />
+            <datalist id="devices"></datalist>
+          </label>
+          <label>
+            Capture format
+            <select name="INPUT_FORMAT">
+              <option value="AUTO">Auto-detect (recommended)</option>
+              <option value="MJPG">MJPG / MJPEG</option>
+              <option value="JPEG">JPEG</option>
+              <option value="H264">H.264</option>
+              <option value="HEVC">HEVC / H.265</option>
+              <option value="YUYV">YUYV</option>
+              <option value="UYVY">UYVY</option>
+            </select>
+          </label>
+          <label>
+            MJPEG port (HTTP)
+            <input type="number" name="HTTP_PORT" min="1" max="65535" />
+          </label>
+          <label>
+            H.264 RTSP port
+            <input type="number" name="RTSP_PORT" min="1" max="65535" />
+          </label>
+          <label>
+            <input type="checkbox" name="ENABLE_HLS" />
+            Enable browser HLS for RTSP mode
+          </label>
+          <label>
+            HLS segment duration (seconds)
+            <input type="number" name="HLS_SEGMENT_DURATION" min="1" max="30" step="1" />
+          </label>
+          <label>
+            Site port
+            <input type="number" name="SITE_PORT" min="1" max="65535" />
+          </label>
+          <label>
+            <input type="checkbox" name="ENABLE_AUTH" />
+            Enable authentication
+          </label>
+          <label>
+            Username
+            <input type="text" name="AUTH_USERNAME" />
+          </label>
+          <label>
+            Password
+            <input type="password" name="AUTH_PASSWORD" />
+          </label>
+          <button type="submit">Save configuration</button>
+        </form>
+      </section>
 
-  <h2>Snapshot</h2>
-  <form id="snapshotForm">
-    <label>
-      Filename
-      <input type="text" name="filename" value="snapshot.jpg" />
-    </label>
-    <button type="submit">Take snapshot</button>
-  </form>
+      <section class="panel">
+        <h2>Capture tools</h2>
+        <p class="helper">Use these helpers to save a short recording or a single image into the PiMonitor recordings folder.</p>
+        <form id="recordForm">
+          <label>
+            Recording duration (seconds)
+            <input type="number" name="duration" min="1" value="10" />
+          </label>
+          <label>
+            Recording filename
+            <input type="text" name="filename" value="record.mp4" />
+          </label>
+          <button type="submit">Start recording</button>
+        </form>
 
-  <h2>Add Wi-Fi Network</h2>
-  <form id="wifiForm">
-    <label>
-      SSID
-      <input type="text" name="ssid" required />
-    </label>
-    <label>
-      Password (leave blank for open network)
-      <input type="password" name="psk" />
-    </label>
-    <label>
-      <input type="checkbox" name="hidden" />
-      Hidden network (broadcast disabled)
-    </label>
-    <button type="submit">Add Wi-Fi network</button>
-  </form>
+        <hr style="border:0;border-top:1px solid #2b3442;margin:1.25rem 0;">
 
-  <div id="wifiNetworks" class="wifi-networks"></div>
+        <form id="snapshotForm">
+          <label>
+            Snapshot filename
+            <input type="text" name="filename" value="snapshot.jpg" />
+          </label>
+          <button type="submit">Take snapshot</button>
+        </form>
 
-  <div class="message" id="message"></div>
+        <div class="message" id="message"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Add Wi-Fi network</h2>
+        <p class="helper">Save networks here before moving the Pi somewhere else. You can also switch to one of the already-saved networks below.</p>
+        <form id="wifiForm">
+          <label>
+            SSID
+            <input type="text" name="ssid" required />
+          </label>
+          <label>
+            Password (leave blank for open network)
+            <input type="password" name="psk" />
+          </label>
+          <label>
+            <input type="checkbox" name="hidden" />
+            Hidden network
+          </label>
+          <button type="submit">Add Wi-Fi network</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>Saved Wi-Fi networks</h2>
+        <div id="wifiNetworks"></div>
+      </section>
+    </div>
+  </div>
 
   <script>
   function escapeHtml(value) {
@@ -234,7 +359,7 @@
     if (!container) {
       return;
     }
-    container.innerHTML = '<p>Loading saved networks...</p>';
+    container.innerHTML = '<p class="helper">Loading saved networks...</p>';
     fetch('/api/wifi')
       .then(handleJson)
       .then(function(result) {
@@ -245,7 +370,7 @@
         }
         var networks = result.data.networks || [];
         if (!networks.length) {
-          container.innerHTML = '<p>No saved networks found.</p>';
+          container.innerHTML = '<p class="helper">No saved networks found.</p>';
           return;
         }
         var rows = networks.map(function(net) {
@@ -276,7 +401,6 @@
       });
   }
 
-  // Populate device list datalist
   function loadDevices() {
     fetch('/api/devices')
       .then(function(res) { return res.json(); })
@@ -291,7 +415,6 @@
       });
   }
 
-  // Load current configuration into the form
   function loadConfig() {
     fetch('/api/config')
       .then(function(res) { return res.json(); })

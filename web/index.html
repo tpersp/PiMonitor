@@ -5,77 +5,227 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PiMonitor Feed</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #0e1116;
+      --panel: #171c24;
+      --panel-border: #2b3442;
+      --text: #eef3fa;
+      --muted: #aeb9c8;
+      --accent: #59b0ff;
+      --accent-strong: #2d8fe6;
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: system-ui, sans-serif;
       margin: 0;
-      background: #111;
-      color: #eee;
-      display: flex;
+      background:
+        radial-gradient(circle at top, rgba(89, 176, 255, 0.18), transparent 28rem),
+        linear-gradient(180deg, #10151d, var(--bg));
+      color: var(--text);
       min-height: 100vh;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
     }
-    .wrap {
-      max-width: 96vw;
-    }
-    img, video {
-      max-width: 96vw;
-      max-height: 90vh;
-      display: block;
+    .shell {
+      width: min(1100px, calc(100% - 2rem));
       margin: 0 auto;
-      border-radius: 8px;
+      padding: 1rem 0 2rem;
+    }
+    .menu {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0.85rem;
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      background: rgba(23, 28, 36, 0.92);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 1rem;
+    }
+    .menu a {
+      color: var(--text);
+      text-decoration: none;
+      padding: 0.55rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+    .menu a.active {
+      background: rgba(89, 176, 255, 0.14);
+      border-color: rgba(89, 176, 255, 0.35);
+    }
+    .hero,
+    .panel {
+      background: rgba(23, 28, 36, 0.94);
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
+    }
+    .hero {
+      margin-top: 1rem;
+      padding: 1.4rem;
+    }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin: 0 0 0.75rem;
     }
     h1 {
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 3rem);
     }
-    .hint {
-      opacity: .7;
-      margin-top: .75rem;
-      font-size: .9rem;
+    .intro {
+      color: var(--muted);
+      max-width: 48rem;
+      line-height: 1.5;
+      margin: 0.75rem 0 0;
     }
-    .stream-links {
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin-top: 1.1rem;
+    }
+    .button-link {
+      color: #fff;
+      text-decoration: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      padding: 0.8rem 1rem;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .button-link.secondary {
+      background: transparent;
+      border: 1px solid var(--panel-border);
+      color: var(--text);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+      gap: 1rem;
       margin-top: 1rem;
-      text-align: left;
+    }
+    .panel {
+      padding: 1.1rem;
+    }
+    h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1.1rem;
+    }
+    img, video {
+      width: 100%;
+      max-height: 70vh;
+      display: block;
+      margin: 0 auto;
+      border-radius: 16px;
+      background: #0a0d12;
+      border: 1px solid #2b3442;
+    }
+    .hint,
+    .summary,
+    .meta p,
+    .stream-links p {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .stream-links p,
+    .meta p {
+      margin: 0.7rem 0;
+    }
+    code {
       display: inline-block;
-      max-width: 96vw;
-    }
-    .stream-links code {
+      max-width: 100%;
       word-break: break-all;
+      background: rgba(7, 11, 16, 0.9);
+      border: 1px solid #273140;
+      border-radius: 8px;
+      padding: 0.18rem 0.45rem;
+      color: #d9f0ff;
     }
-    a { color: #9cf; }
+    @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .shell {
+        width: min(100% - 1rem, 1100px);
+      }
+      .menu {
+        position: static;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>PiMonitor</h1>
-    <div id="stream-container"></div>
-    <p class="hint" id="hint"></p>
-    <div class="stream-links" id="stream-links"></div>
-    <p style="margin-top:1rem;"><a href="/config.html">Open configuration</a></p>
+  <div class="shell">
+    <nav class="menu" aria-label="Main navigation">
+      <a class="active" href="/">Live view</a>
+      <a href="/config.html">Configuration</a>
+      <a href="/info.html">Info</a>
+    </nav>
+
+    <section class="hero">
+      <p class="eyebrow">PiMonitor</p>
+      <h1>Live monitor view</h1>
+      <p class="intro">Use this page for the current feed. Open the configuration page to change capture settings, and use the info page if you need the exact URLs for VLC, browsers, or other devices.</p>
+      <div class="actions">
+        <a class="button-link" href="/config.html">Open configuration</a>
+        <a class="button-link secondary" href="/info.html">Open info and help</a>
+      </div>
+    </section>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Current stream</h2>
+        <div id="stream-container"></div>
+        <p class="hint" id="hint"></p>
+      </section>
+
+      <aside class="panel">
+        <h2>Quick details</h2>
+        <div class="meta" id="meta"></div>
+        <div class="stream-links" id="stream-links"></div>
+      </aside>
+    </div>
   </div>
+
   <script>
-  // Fetch current configuration to determine how to display the stream
+  function addParagraph(container, html) {
+    var p = document.createElement('p');
+    p.innerHTML = html;
+    container.appendChild(p);
+  }
+
   fetch('/api/config')
     .then(function(res) { return res.json(); })
     .then(function(cfg) {
       var container = document.getElementById('stream-container');
       var hint = document.getElementById('hint');
       var links = document.getElementById('stream-links');
+      var meta = document.getElementById('meta');
       var host = window.location.hostname;
-      var siteHost = window.location.host;
+      var siteOrigin = window.location.origin;
+
+      addParagraph(meta, 'Mode: <strong>' + (cfg.STREAM_MODE || 'MJPEG') + '</strong>');
+      addParagraph(meta, 'Device: <code>' + (cfg.DEVICE || '/dev/video0') + '</code>');
+      addParagraph(meta, 'Resolution: <strong>' + (cfg.RESOLUTION || 'unknown') + '</strong>');
+      addParagraph(meta, 'FPS: <strong>' + (cfg.FPS || 'unknown') + '</strong>');
+
       if (cfg.STREAM_MODE === 'MJPEG') {
         var img = document.createElement('img');
         img.src = '/stream';
         img.alt = 'Live stream';
         container.appendChild(img);
-        links.innerHTML = '<p>Direct MJPEG URL: <code>http://' + host + ':' + cfg.HTTP_PORT + '/stream</code></p>';
+        hint.textContent = 'MJPEG mode is the simplest option for browser viewing and troubleshooting.';
+        addParagraph(links, 'Browser stream: <code>' + siteOrigin + '/stream</code>');
+        addParagraph(links, 'Direct MJPEG URL: <code>http://' + host + ':' + cfg.HTTP_PORT + '/stream</code>');
       } else {
         var rtspUrl = 'rtsp://' + host + ':' + cfg.RTSP_PORT + '/stream';
-        hint.textContent = 'Use VLC, ffplay, or another RTSP viewer from your PC to open the live feed.';
-        links.innerHTML = '<p>RTSP URL: <code>' + rtspUrl + '</code></p>';
+        hint.textContent = 'Use VLC, ffplay, or another RTSP viewer from another device to open the live feed.';
+        addParagraph(links, 'RTSP URL: <code>' + rtspUrl + '</code>');
+
         if (cfg.ENABLE_HLS === '1') {
           var video = document.createElement('video');
           video.controls = true;
@@ -84,13 +234,14 @@
           video.playsInline = true;
           video.src = '/hls/unicast.m3u8';
           container.appendChild(video);
-          links.innerHTML += '<p>Browser HLS URL: <code>http://' + siteHost + '/hls/unicast.m3u8</code></p>';
+          addParagraph(links, 'Browser HLS URL: <code>' + siteOrigin + '/hls/unicast.m3u8</code>');
+        } else {
+          addParagraph(links, 'HLS browser playback is currently disabled.');
         }
       }
     })
     .catch(function() {
-      var hint = document.getElementById('hint');
-      hint.textContent = 'Unable to load configuration.';
+      document.getElementById('hint').textContent = 'Unable to load configuration.';
     });
   </script>
 </body>
