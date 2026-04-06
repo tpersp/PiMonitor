@@ -103,9 +103,6 @@
       color: var(--text);
     }
     .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
-      gap: 1rem;
       margin-top: 1rem;
     }
     .panel {
@@ -117,7 +114,7 @@
     }
     img, video {
       width: 100%;
-      max-height: 70vh;
+      max-height: 76vh;
       display: block;
       margin: 0 auto;
       border-radius: 16px;
@@ -125,15 +122,17 @@
       border: 1px solid #2b3442;
     }
     .hint,
-    .summary,
-    .meta p,
     .stream-links p {
       color: var(--muted);
       line-height: 1.5;
     }
-    .stream-links p,
-    .meta p {
+    .stream-links p {
       margin: 0.7rem 0;
+    }
+    .stream-links {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #2b3442;
     }
     code {
       display: inline-block;
@@ -146,9 +145,6 @@
       color: #d9f0ff;
     }
     @media (max-width: 860px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
       .shell {
         width: min(100% - 1rem, 1100px);
       }
@@ -181,13 +177,8 @@
         <h2>Current stream</h2>
         <div id="stream-container"></div>
         <p class="hint" id="hint"></p>
-      </section>
-
-      <aside class="panel">
-        <h2>Quick details</h2>
-        <div class="meta" id="meta"></div>
         <div class="stream-links" id="stream-links"></div>
-      </aside>
+      </section>
     </div>
   </div>
 
@@ -252,14 +243,8 @@
       var container = document.getElementById('stream-container');
       var hint = document.getElementById('hint');
       var links = document.getElementById('stream-links');
-      var meta = document.getElementById('meta');
       var host = window.location.hostname;
       var siteOrigin = window.location.origin;
-
-      addParagraph(meta, 'Mode: <strong>' + (cfg.STREAM_MODE || 'MJPEG') + '</strong>');
-      addParagraph(meta, 'Device: <code>' + (cfg.DEVICE || '/dev/video0') + '</code>');
-      addParagraph(meta, 'Resolution: <strong>' + (cfg.RESOLUTION || 'unknown') + '</strong>');
-      addParagraph(meta, 'FPS: <strong>' + (cfg.FPS || 'unknown') + '</strong>');
 
       if (cfg.STREAM_MODE === 'MJPEG') {
         var img = document.createElement('img');
@@ -269,7 +254,7 @@
           tryHlsFallback(container, links, hint, siteOrigin);
         });
         container.appendChild(img);
-        hint.textContent = 'MJPEG mode is the simplest option for browser viewing and troubleshooting.';
+        hint.textContent = 'MJPEG mode is active. Open the info page if you need direct connection URLs.';
         addParagraph(links, 'Browser stream: <code>' + siteOrigin + '/stream</code>');
         addParagraph(links, 'Direct MJPEG URL: <code>http://' + host + ':' + cfg.HTTP_PORT + '/stream</code>');
       } else {

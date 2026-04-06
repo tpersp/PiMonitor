@@ -98,6 +98,9 @@
       margin: 0 0 0.8rem;
       font-size: 1.1rem;
     }
+    .wide {
+      grid-column: 1 / -1;
+    }
     form {
       margin: 0;
     }
@@ -149,14 +152,17 @@
     .wifi-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 0.5rem;
+      margin-top: 0.75rem;
       font-size: 0.92rem;
+      table-layout: fixed;
     }
     .wifi-table th,
     .wifi-table td {
       border: 1px solid #333d4d;
       padding: 0.55rem;
       text-align: left;
+      vertical-align: middle;
+      word-break: break-word;
     }
     .wifi-table tr.current {
       background: rgba(89, 176, 255, 0.12);
@@ -173,16 +179,22 @@
     }
     .wifi-actions {
       white-space: nowrap;
+      width: 7rem;
     }
     .wifi-actions button {
       margin-top: 0;
-      padding: 0.45rem 0.7rem;
+      padding: 0.55rem 0.85rem;
       font-size: 0.85rem;
+      width: 100%;
     }
     .helper {
       color: var(--muted);
       line-height: 1.5;
       margin: 0 0 1rem;
+    }
+    .stack {
+      display: grid;
+      gap: 1rem;
     }
     a {
       color: #b7ddff;
@@ -193,6 +205,9 @@
       }
       .menu {
         position: static;
+      }
+      .wifi-table {
+        font-size: 0.86rem;
       }
     }
   </style>
@@ -212,7 +227,7 @@
     </section>
 
     <div class="grid">
-      <section class="panel">
+      <section class="panel wide">
         <h2>Stream settings</h2>
         <form id="configForm">
           <label>
@@ -284,34 +299,6 @@
       </section>
 
       <section class="panel">
-        <h2>Capture tools</h2>
-        <p class="helper">Use these helpers to save a short recording or a single image into the PiMonitor recordings folder.</p>
-        <form id="recordForm">
-          <label>
-            Recording duration (seconds)
-            <input type="number" name="duration" min="1" value="10" />
-          </label>
-          <label>
-            Recording filename
-            <input type="text" name="filename" value="record.mp4" />
-          </label>
-          <button type="submit">Start recording</button>
-        </form>
-
-        <hr style="border:0;border-top:1px solid #2b3442;margin:1.25rem 0;">
-
-        <form id="snapshotForm">
-          <label>
-            Snapshot filename
-            <input type="text" name="filename" value="snapshot.jpg" />
-          </label>
-          <button type="submit">Take snapshot</button>
-        </form>
-
-        <div class="message" id="message"></div>
-      </section>
-
-      <section class="panel">
         <h2>Add Wi-Fi network</h2>
         <p class="helper">Save networks here before moving the Pi somewhere else. You can also switch to one of the already-saved networks below.</p>
         <form id="wifiForm">
@@ -332,7 +319,35 @@
       </section>
 
       <section class="panel">
+        <h2>Capture tools</h2>
+        <p class="helper">Use these helpers to save a short recording or a single image into the PiMonitor recordings folder.</p>
+        <div class="stack">
+          <form id="recordForm">
+            <label>
+              Recording duration (seconds)
+              <input type="number" name="duration" min="1" value="10" />
+            </label>
+            <label>
+              Recording filename
+              <input type="text" name="filename" value="record.mp4" />
+            </label>
+            <button type="submit">Start recording</button>
+          </form>
+
+          <form id="snapshotForm">
+            <label>
+              Snapshot filename
+              <input type="text" name="filename" value="snapshot.jpg" />
+            </label>
+            <button type="submit">Take snapshot</button>
+          </form>
+        </div>
+        <div class="message" id="message"></div>
+      </section>
+
+      <section class="panel wide">
         <h2>Saved Wi-Fi networks</h2>
+        <p class="helper">These are the Wi-Fi networks currently stored on the Pi. Use Connect to tell the Pi to switch to one of them.</p>
         <div id="wifiNetworks"></div>
       </section>
     </div>
