@@ -11,10 +11,11 @@ This rewrite keeps the simple one-command installation but adds a number of usef
 * **Multiple streaming modes:** Use lightweight MJPEG (default) for maximum compatibility or H.264 for lower bandwidth.  
   H.264 is served via an RTSP server and can optionally expose HLS/DASH for browser playback.
 * **Multi-device selection:** Automatically detects all V4L2 video devices (USB capture sticks, webcams, etc.) and lets you pick which one to stream.
+* **Webcam-aware capture:** PiMonitor now auto-detects a usable capture format for USB webcams and capture cards, instead of assuming every device speaks MJPEG the same way.
 * **HTTP authentication:** Optionally protect the landing page and stream with HTTP basic auth.  
   When disabled (the default) the stream remains public.
 * **Recording & screenshots:** Trigger recordings or take a snapshot from the live stream directly from the web UI.  Recordings are saved as MP4 files and snapshots as JPEG images.
-* **Configuration web UI:** A minimal interface served from the Pi allows you to change resolution, frame rate, streaming mode, and authentication settings without editing systemd units.  Changes are applied immediately.
+* **Configuration web UI:** A minimal interface served from the Pi allows you to change resolution, frame rate, streaming mode, device, capture format, and authentication settings without editing systemd units. Changes are applied immediately.
 * **One-command installation:** Still a single script (`installpimonitor.sh`) that installs dependencies, builds optional components, creates systemd units and nginx configuration, and installs the web files.
 
 ## Installation
@@ -42,7 +43,7 @@ When finished, the installer prints the URLs for the landing page and the raw st
 ## Usage
 
 * **Landing page:** `http://<pi-ip>/` - Displays the live stream (MJPEG or H.264) and provides links to the configuration page.
-* **Configuration page:** `http://<pi-ip>/config/` - Adjust resolution, FPS, streaming mode, device, and authentication credentials.  You can also trigger recordings, snapshots, and view/add Wi-Fi networks here.
+* **Configuration page:** `http://<pi-ip>/config.html` - Adjust resolution, FPS, streaming mode, device, capture format, and authentication credentials. You can also trigger recordings, snapshots, and view/add/connect Wi-Fi networks here.
 * **Raw stream:**
   * MJPEG: `http://<pi-ip>:<HTTP_PORT>/stream`
   * H.264 RTSP: `rtsp://<pi-ip>:<RTSP_PORT>/stream`
@@ -63,14 +64,29 @@ If you prefer automation or scripting, most options can be overridden when runni
 * `FPS` - Set frame rate (e.g. `30`, default `30`).
 * `STREAM_MODE` - `MJPEG` or `H264_RTSP`.  MJPEG uses uStreamer over HTTP; H264_RTSP uses v4l2rtspserver and provides a lower bandwidth H.264 stream.
 * `DEVICE_INDEX` - Zero-based index of the detected capture device to use (default `0`).
+* `INPUT_FORMAT` - Capture pixel format. Use `AUTO` to let PiMonitor pick a good format for the current device. Manual values such as `MJPG`, `JPEG`, `H264`, `YUYV`, and `UYVY` are also supported.
 * `HTTP_PORT` - Port used by uStreamer for MJPEG (default `8080`).
 * `RTSP_PORT` - Port used by v4l2rtspserver for RTSP/HLS (default `8554`).
+* `ENABLE_HLS` - Set to `1` to expose HLS through nginx for browser playback when using `H264_RTSP` mode.
+* `HLS_SEGMENT_DURATION` - HLS segment length in seconds (default `2`).
 * `SITE_PORT` - Port where nginx serves the web UI (default `80`).
 * `CONFIG_PORT` - Port used by the Flask API server (default `5000`).
 * `ENABLE_AUTH` - Set to `1` to enable HTTP basic authentication (default `0`).
 * `AUTH_USERNAME` / `AUTH_PASSWORD` - Credentials used when `ENABLE_AUTH=1` (default `admin`/`password`).
 * `RECORD_DIR` - Directory where recordings and snapshots are stored (defaults to `$HOME/pimonitor-recordings`).
 * `DISABLE_WIFI_POWERSAVE` - Set to `1` to disable Wi-Fi power saving (default `1`).
+
+### Manual Updates
+
+To update PiMonitor after you pull down a newer copy of the project:
+
+```bash
+cd ~/PiMonitor
+git pull
+sudo ./installpimonitor.sh
+```
+
+Re-running the installer is the supported update path. It refreshes the web files, helper scripts, and systemd units while keeping your runtime settings in `/etc/pimonitor.conf`.
 
 ### Manually Editing the Config File
 
@@ -90,6 +106,7 @@ PiMonitor includes helper endpoints to record the live stream or take a snapshot
 
 * **Record:** Click *Record* in the configuration page, enter a duration and filename, and an MP4 file will be saved under the recordings directory.
 * **Snapshot:** Click *Snapshot* in the configuration page to capture a single frame as a JPEG.
+* **Wi-Fi:** The configuration page can save networks for later and also tell `wpa_supplicant` to switch to one of the saved SSIDs.
 
 You can also call the helper scripts directly from the command line:
 
@@ -105,6 +122,26 @@ PiMonitor uses nginx's built-in basic authentication.  The username and password
 
 When authentication is enabled, both the landing page and the raw stream(s) require credentials.  If you disable authentication, the stream is publicly accessible.
 
+## Connecting From VLC
+
+From another PC on the same network, open:
+
+```text
+rtsp://<pi-ip>:<RTSP_PORT>/stream
+```
+
+For example, with the default port:
+
+```text
+rtsp://192.168.1.50:8554/stream
+```
+
+If you prefer browser playback while in `H264_RTSP` mode, enable HLS in the config page and open:
+
+```text
+http://<pi-ip>/hls/unicast.m3u8
+```
+
 ## Optional Add-ons
 
 PiMonitor can drive optional hardware modules. Each feature lives under the `optional-features` directory with its own setup notes.
@@ -113,11 +150,10 @@ PiMonitor can drive optional hardware modules. Each feature lives under the `opt
 
 ## Limitations & Notes
 
-* H.264 streaming relies on the [`v4l2rtspserver`](https://github.com/mpromonet/v4l2rtspserver) project.  Not all capture devices output H.264 natively; in those cases `v4l2rtspserver` will use the raw frames and encode them on the Pi, which may increase CPU usage.  When no H.264 support is available, consider staying with MJPEG.
-* The default web UI embeds MJPEG streams directly using an `<img>` element.  For H.264/RTSP, browsers generally cannot play RTSP directly; you can either use an external player (e.g. VLC) or enable HLS mode by adding `-S` to the v4l2rtspserver arguments via the configuration file.
+* H.264/RTSP streaming relies on the [`v4l2rtspserver`](https://github.com/mpromonet/v4l2rtspserver) project. PiMonitor now picks a format at service start, but RTSP still works best with devices that expose `H264`, `HEVC`, `MJPG`, or `JPEG`. Some raw-only webcams may still be better in MJPEG mode.
+* The default web UI embeds MJPEG streams directly using an `<img>` element. For H.264/RTSP, browsers generally cannot play RTSP directly; use an external player such as VLC with `rtsp://<pi-ip>:<RTSP_PORT>/stream`.
 * Recording and snapshot features use `ffmpeg` internally.  Long recordings may consume significant disk space, so ensure your Pi has sufficient storage.
 
 ## License
 
 MIT
-

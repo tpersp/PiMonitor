@@ -87,6 +87,14 @@
       font-size: 0.7rem;
       margin-left: 0.4rem;
     }
+    .wifi-actions {
+      white-space: nowrap;
+    }
+    .wifi-actions button {
+      margin-top: 0;
+      padding: 0.3rem 0.6rem;
+      font-size: 0.85rem;
+    }
     a { color: #9cf; }
   </style>
 </head>
@@ -116,12 +124,32 @@
       <datalist id="devices"></datalist>
     </label>
     <label>
+      Capture format
+      <select name="INPUT_FORMAT">
+        <option value="AUTO">Auto-detect (recommended)</option>
+        <option value="MJPG">MJPG / MJPEG</option>
+        <option value="JPEG">JPEG</option>
+        <option value="H264">H.264</option>
+        <option value="HEVC">HEVC / H.265</option>
+        <option value="YUYV">YUYV</option>
+        <option value="UYVY">UYVY</option>
+      </select>
+    </label>
+    <label>
       MJPEG port (HTTP)
       <input type="number" name="HTTP_PORT" min="1" max="65535" />
     </label>
     <label>
       H.264 RTSP port
       <input type="number" name="RTSP_PORT" min="1" max="65535" />
+    </label>
+    <label>
+      Enable browser HLS for RTSP mode
+      <input type="checkbox" name="ENABLE_HLS" />
+    </label>
+    <label>
+      HLS segment duration (seconds)
+      <input type="number" name="HLS_SEGMENT_DURATION" min="1" max="30" step="1" />
     </label>
     <label>
       Site port
@@ -237,9 +265,10 @@
           var statusText = escapeHtml(statusParts.join(' | ') || 'Saved');
           var tag = net.is_current ? '<span class="tag">current</span>' : '';
           var rowClass = net.is_current ? ' class="current"' : '';
-          return '<tr' + rowClass + '><td>' + ssid + tag + '</td><td>' + security + '</td><td>' + hidden + '</td><td>' + statusText + '</td></tr>';
+          var action = net.is_current ? '' : '<button type="button" class="wifi-connect-button" data-ssid="' + ssid + '">Connect</button>';
+          return '<tr' + rowClass + '><td>' + ssid + tag + '</td><td>' + security + '</td><td>' + hidden + '</td><td>' + statusText + '</td><td class="wifi-actions">' + action + '</td></tr>';
         }).join('');
-        container.innerHTML = '<table class="wifi-table"><thead><tr><th>SSID</th><th>Security</th><th>Hidden</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>';
+        container.innerHTML = '<table class="wifi-table"><thead><tr><th>SSID</th><th>Security</th><th>Hidden</th><th>Status</th><th>Action</th></tr></thead><tbody>' + rows + '</tbody></table>';
       })
       .catch(function(err) {
         var message = err && err.message ? err.message : 'Failed to load saved Wi-Fi networks.';
@@ -272,8 +301,11 @@
         form.FPS.value = cfg.FPS || '';
         form.STREAM_MODE.value = cfg.STREAM_MODE || 'MJPEG';
         form.DEVICE.value = cfg.DEVICE || '';
+        form.INPUT_FORMAT.value = cfg.INPUT_FORMAT || 'AUTO';
         form.HTTP_PORT.value = cfg.HTTP_PORT || '';
         form.RTSP_PORT.value = cfg.RTSP_PORT || '';
+        form.ENABLE_HLS.checked = cfg.ENABLE_HLS === '1';
+        form.HLS_SEGMENT_DURATION.value = cfg.HLS_SEGMENT_DURATION || '2';
         form.SITE_PORT.value = cfg.SITE_PORT || '';
         form.ENABLE_AUTH.checked = cfg.ENABLE_AUTH === '1';
         form.AUTH_USERNAME.value = cfg.AUTH_USERNAME || '';
@@ -321,8 +353,11 @@
           FPS: form.FPS.value,
           STREAM_MODE: form.STREAM_MODE.value,
           DEVICE: form.DEVICE.value,
+          INPUT_FORMAT: form.INPUT_FORMAT.value,
           HTTP_PORT: form.HTTP_PORT.value,
           RTSP_PORT: form.RTSP_PORT.value,
+          ENABLE_HLS: form.ENABLE_HLS.checked ? '1' : '0',
+          HLS_SEGMENT_DURATION: form.HLS_SEGMENT_DURATION.value,
           SITE_PORT: form.SITE_PORT.value,
           ENABLE_AUTH: form.ENABLE_AUTH.checked ? '1' : '0',
           AUTH_USERNAME: form.AUTH_USERNAME.value,
@@ -463,8 +498,45 @@
           });
       });
     }
+
+    var wifiNetworks = document.getElementById('wifiNetworks');
+    if (wifiNetworks) {
+      wifiNetworks.addEventListener('click', function(e) {
+        var button = e.target.closest('.wifi-connect-button');
+        if (!button) {
+          return;
+        }
+        var ssid = button.getAttribute('data-ssid') || '';
+        if (!ssid) {
+          return;
+        }
+        button.disabled = true;
+        fetch('/api/wifi/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ssid: ssid })
+        })
+          .then(handleJson)
+          .then(function(result) {
+            var resp = result.data || {};
+            if (!result.ok || resp.status !== 'ok') {
+              var err = resp.error || 'unknown error';
+              showMessage('Failed to connect to Wi-Fi network: ' + err, 'error');
+              return;
+            }
+            showMessage('Requested connection to "' + ssid + '". The Pi may switch networks shortly.', 'success');
+            setTimeout(loadWifiNetworks, 2000);
+          })
+          .catch(function(err) {
+            var messageText = err && err.message ? err.message : String(err);
+            showMessage('Failed to connect to Wi-Fi network: ' + messageText, 'error');
+          })
+          .finally(function() {
+            button.disabled = false;
+          });
+      });
+    }
   });
   </script>
 </body>
 </html>
-

@@ -36,6 +36,15 @@
       margin-top: .75rem;
       font-size: .9rem;
     }
+    .stream-links {
+      margin-top: 1rem;
+      text-align: left;
+      display: inline-block;
+      max-width: 96vw;
+    }
+    .stream-links code {
+      word-break: break-all;
+    }
     a { color: #9cf; }
   </style>
 </head>
@@ -44,6 +53,7 @@
     <h1>PiMonitor</h1>
     <div id="stream-container"></div>
     <p class="hint" id="hint"></p>
+    <div class="stream-links" id="stream-links"></div>
     <p style="margin-top:1rem;"><a href="/config.html">Open configuration</a></p>
   </div>
   <script>
@@ -53,14 +63,29 @@
     .then(function(cfg) {
       var container = document.getElementById('stream-container');
       var hint = document.getElementById('hint');
+      var links = document.getElementById('stream-links');
+      var host = window.location.hostname;
+      var siteHost = window.location.host;
       if (cfg.STREAM_MODE === 'MJPEG') {
         var img = document.createElement('img');
         img.src = '/stream';
         img.alt = 'Live stream';
         container.appendChild(img);
+        links.innerHTML = '<p>Direct MJPEG URL: <code>http://' + host + ':' + cfg.HTTP_PORT + '/stream</code></p>';
       } else {
-        // For H.264 RTSP we can't embed directly; instruct user to open in a player
-        hint.textContent = 'H.264 stream available at rtsp://' + window.location.hostname + ':' + cfg.RTSP_PORT + '/stream. Use VLC or another RTSP viewer.';
+        var rtspUrl = 'rtsp://' + host + ':' + cfg.RTSP_PORT + '/stream';
+        hint.textContent = 'Use VLC, ffplay, or another RTSP viewer from your PC to open the live feed.';
+        links.innerHTML = '<p>RTSP URL: <code>' + rtspUrl + '</code></p>';
+        if (cfg.ENABLE_HLS === '1') {
+          var video = document.createElement('video');
+          video.controls = true;
+          video.autoplay = true;
+          video.muted = true;
+          video.playsInline = true;
+          video.src = '/hls/unicast.m3u8';
+          container.appendChild(video);
+          links.innerHTML += '<p>Browser HLS URL: <code>http://' + siteHost + '/hls/unicast.m3u8</code></p>';
+        }
       }
     })
     .catch(function() {

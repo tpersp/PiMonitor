@@ -26,6 +26,9 @@ RTSP_PORT="${RTSP_PORT:-8554}"              # port for v4l2rtspserver (H.264)
 SITE_PORT="${SITE_PORT:-80}"                # nginx port for landing/config pages
 CONFIG_PORT="${CONFIG_PORT:-5000}"          # port for the Flask API server
 DEVICE_INDEX="${DEVICE_INDEX:-0}"           # which capture device to use (0‑based)
+INPUT_FORMAT="${INPUT_FORMAT:-AUTO}"        # AUTO, MJPG, JPEG, H264, YUYV, UYVY...
+ENABLE_HLS="${ENABLE_HLS:-0}"              # 1 = expose HLS/DASH alongside RTSP
+HLS_SEGMENT_DURATION="${HLS_SEGMENT_DURATION:-2}" # segment duration in seconds
 ENABLE_AUTH="${ENABLE_AUTH:-0}"              # 1 = enable HTTP basic auth
 AUTH_USERNAME="${AUTH_USERNAME:-admin}"      # username for basic auth
 AUTH_PASSWORD="${AUTH_PASSWORD:-password}"    # password for basic auth
@@ -162,6 +165,9 @@ RESOLUTION=$RESOLUTION
 FPS=$FPS
 STREAM_MODE=$STREAM_MODE
 DEVICE=$DEVICE
+INPUT_FORMAT=$INPUT_FORMAT
+ENABLE_HLS=$ENABLE_HLS
+HLS_SEGMENT_DURATION=$HLS_SEGMENT_DURATION
 HTTP_PORT=$HTTP_PORT
 RTSP_PORT=$RTSP_PORT
 SITE_PORT=$SITE_PORT
@@ -185,6 +191,7 @@ cp "$SCRIPT_DIR/web/config.html" /var/www/pimonitor/config.html
 # Copy helper scripts for recordings/snapshots into /usr/local/bin
 install -m 0755 "$SCRIPT_DIR/scripts/record_stream.sh" /usr/local/bin/pimonitor-record
 install -m 0755 "$SCRIPT_DIR/scripts/snapshot.sh" /usr/local/bin/pimonitor-snapshot
+install -m 0755 "$SCRIPT_DIR/scripts/pimonitor_stream.sh" /usr/local/bin/pimonitor_stream.sh
 
 # Copy the Flask API server into /usr/local/bin
 install -m 0755 "$SCRIPT_DIR/pimonitor_api.py" /usr/local/bin/pimonitor_api.py
@@ -193,47 +200,22 @@ install -m 0755 "$SCRIPT_DIR/pimonitor_api.py" /usr/local/bin/pimonitor_api.py
 # Create systemd service for streaming
 
 echo "[7/12] Creating pimonitor-stream.service..."
-if [ "$STREAM_MODE" = "MJPEG" ]; then
-  cat >/etc/systemd/system/pimonitor-stream.service <<EOF
+cat >/etc/systemd/system/pimonitor-stream.service <<EOF
 [Unit]
-Description=PiMonitor streaming service (MJPEG)
+Description=PiMonitor streaming service
 After=network.target
 
 [Service]
-ExecStartPre=/usr/bin/v4l2-ctl --device=$DEVICE --set-fmt-video=width=$W,height=$H,pixelformat=MJPG
-ExecStartPre=/usr/bin/v4l2-ctl --device=$DEVICE --set-parm=$FPS
-ExecStart=/usr/bin/ustreamer \
-  --device=$DEVICE \
-  --format=MJPEG \
-  --resolution=$RESOLUTION \
-  --desired-fps=$FPS \
-  --host=0.0.0.0 \
-  --port=$HTTP_PORT \
-  --buffers=4
+ExecStart=/usr/local/bin/pimonitor_stream.sh
 Restart=always
+RestartSec=2
 User=$SERVICE_USER
 Group=$SERVICE_USER
+Environment=CONFIG_FILE=/etc/pimonitor.conf
 
 [Install]
 WantedBy=multi-user.target
 EOF
-else
-  # H.264 RTSP mode
-  cat >/etc/systemd/system/pimonitor-stream.service <<EOF
-[Unit]
-Description=PiMonitor streaming service (H.264 RTSP)
-After=network.target
-
-[Service]
-ExecStart=/usr/local/bin/v4l2rtspserver -W $W -H $H -F $FPS -P $RTSP_PORT -u stream $DEVICE
-Restart=always
-User=$SERVICE_USER
-Group=$SERVICE_USER
-
-[Install]
-WantedBy=multi-user.target
-EOF
-fi
 
 #############################################
 # Create systemd service for the API server
@@ -280,9 +262,22 @@ if [ "$STREAM_MODE" = "MJPEG" ]; then
   # MJPEG uses an HTTP backend served by uStreamer
   # Use a single backslash to escape the dollar sign so that nginx sees $host
   STREAM_REDIRECT="return 302 http://\$host:${HTTP_PORT}/stream;"
+  HLS_DIRECTIVES="location /hls/ { return 404; }"
 else
   # H.264 uses an RTSP backend served by v4l2rtspserver
   STREAM_REDIRECT="return 302 rtsp://\$host:${RTSP_PORT}/stream;"
+  if [ "$ENABLE_HLS" = "1" ]; then
+    HLS_DIRECTIVES=$(cat <<EOF
+location /hls/ {
+        proxy_pass http://127.0.0.1:${RTSP_PORT}/;
+        proxy_set_header Host \$host;
+        add_header Access-Control-Allow-Origin *;
+    }
+EOF
+    )
+  else
+    HLS_DIRECTIVES="location /hls/ { return 404; }"
+  fi
 fi
 
 # Write nginx site configuration
@@ -305,6 +300,8 @@ server {
     location /stream {
         $STREAM_REDIRECT
     }
+
+    $HLS_DIRECTIVES
 
     # Proxy API requests to the Flask server
     location /api/ {
@@ -363,7 +360,7 @@ if [ "$STREAM_MODE" = "MJPEG" ]; then
 else
   echo "RTSP stream:     rtsp://${IP_ADDR}:${RTSP_PORT}/stream"
 fi
-echo "Config page:    http://${IP_ADDR}:${SITE_PORT}/config/"
+echo "Config page:    http://${IP_ADDR}:${SITE_PORT}/config.html"
 echo
 echo "Configuration file: /etc/pimonitor.conf"
 echo "Recordings & snapshots saved to: $RECORD_DIR"

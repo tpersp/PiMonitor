@@ -21,8 +21,8 @@ streams, the recording is transcoded to H.264 for reasonable file sizes;
 for H.264 RTSP streams the raw video is simply remuxed.
 """
 
-import json
 import os
+import re
 import subprocess
 from threading import Lock
 from typing import Optional
@@ -40,9 +40,14 @@ APP_PORT = int(os.environ.get('CONFIG_PORT', os.environ.get('PORT', '5000')))
 
 WPA_SUPPLICANT_CONF = os.environ.get('WPA_SUPPLICANT_CONF', '/etc/wpa_supplicant/wpa_supplicant.conf')
 WPA_INTERFACE = os.environ.get('WPA_INTERFACE', 'wlan0')
+NGINX_SITE_PATH = os.environ.get('NGINX_SITE_PATH', '/etc/nginx/sites-available/pimonitor')
+NGINX_AUTH_FILE = os.environ.get('NGINX_AUTH_FILE', '/etc/nginx/.pimonitor_htpasswd')
+NGINX_RELOAD_COMMAND = os.environ.get('NGINX_RELOAD_COMMAND', 'reload')
 
 # Serialise access to config/record operations
 lock = Lock()
+
+RESOLUTION_RE = re.compile(r'^\d+x\d+$')
 
 
 def load_config():
@@ -73,6 +78,173 @@ def restart_stream():
         subprocess.run(['systemctl', 'restart', SERVICE_NAME], check=False)
     except Exception:
         pass
+
+
+def run_command(cmd: list[str], *, check: bool = True, capture_output: bool = False,
+                text: bool = True, input_text: Optional[str] = None) -> subprocess.CompletedProcess:
+    """Small subprocess wrapper."""
+    kwargs = {
+        'check': check,
+        'text': text,
+    }
+    if capture_output:
+        kwargs['capture_output'] = True
+    else:
+        kwargs['stdout'] = subprocess.DEVNULL
+        kwargs['stderr'] = subprocess.DEVNULL
+    if input_text is not None:
+        kwargs['input'] = input_text
+    return subprocess.run(cmd, **kwargs)
+
+
+def validate_config_payload(data: dict[str, object], current_cfg: dict[str, str]) -> tuple[dict[str, str], list[str]]:
+    """Validate config updates and return normalized config plus any errors."""
+    cfg = dict(current_cfg)
+    errors: list[str] = []
+    for raw_key, raw_value in data.items():
+        key = str(raw_key)
+        value = '' if raw_value is None else str(raw_value).strip()
+        cfg[key] = value
+
+    resolution = cfg.get('RESOLUTION', '')
+    if resolution and not RESOLUTION_RE.match(resolution):
+        errors.append('Resolution must look like WIDTHxHEIGHT, for example 1280x720.')
+
+    for port_key in ('HTTP_PORT', 'RTSP_PORT', 'SITE_PORT'):
+        port_value = cfg.get(port_key, '').strip()
+        if not port_value:
+            continue
+        try:
+            port_number = int(port_value)
+        except ValueError:
+            errors.append(f'{port_key} must be a number.')
+            continue
+        if port_number < 1 or port_number > 65535:
+            errors.append(f'{port_key} must be between 1 and 65535.')
+
+    fps_value = cfg.get('FPS', '').strip()
+    if fps_value:
+        try:
+            fps = int(fps_value)
+            if fps < 1 or fps > 120:
+                errors.append('FPS must be between 1 and 120.')
+        except ValueError:
+            errors.append('FPS must be a number.')
+
+    stream_mode = cfg.get('STREAM_MODE', 'MJPEG')
+    if stream_mode not in ('MJPEG', 'H264_RTSP'):
+        errors.append('STREAM_MODE must be MJPEG or H264_RTSP.')
+
+    input_format = cfg.get('INPUT_FORMAT', 'AUTO').upper() or 'AUTO'
+    cfg['INPUT_FORMAT'] = input_format
+    if input_format not in ('AUTO', 'MJPG', 'JPEG', 'YUYV', 'UYVY', 'H264', 'HEVC'):
+        errors.append('INPUT_FORMAT must be AUTO, MJPG, JPEG, YUYV, UYVY, H264, or HEVC.')
+
+    enable_hls = cfg.get('ENABLE_HLS', '0')
+    cfg['ENABLE_HLS'] = '1' if str(enable_hls).strip() in ('1', 'true', 'yes', 'on') else '0'
+    hls_segment_duration = cfg.get('HLS_SEGMENT_DURATION', '2').strip() or '2'
+    cfg['HLS_SEGMENT_DURATION'] = hls_segment_duration
+    try:
+        hls_duration = int(hls_segment_duration)
+        if hls_duration < 1 or hls_duration > 30:
+            errors.append('HLS_SEGMENT_DURATION must be between 1 and 30 seconds.')
+    except ValueError:
+        errors.append('HLS_SEGMENT_DURATION must be a number.')
+
+    enable_auth = cfg.get('ENABLE_AUTH', '0')
+    cfg['ENABLE_AUTH'] = '1' if str(enable_auth).strip() in ('1', 'true', 'yes', 'on') else '0'
+    if cfg['ENABLE_AUTH'] == '1':
+        if not cfg.get('AUTH_USERNAME', '').strip():
+            errors.append('AUTH_USERNAME is required when authentication is enabled.')
+        if not cfg.get('AUTH_PASSWORD', '').strip():
+            errors.append('AUTH_PASSWORD is required when authentication is enabled.')
+
+    device = cfg.get('DEVICE', '').strip()
+    if device and not os.path.exists(device):
+        errors.append(f'Device does not exist: {device}')
+
+    return cfg, errors
+
+
+def render_nginx_config(cfg: dict[str, str]) -> str:
+    """Render nginx site config from the current PiMonitor configuration."""
+    site_port = cfg.get('SITE_PORT', '80')
+    config_port = cfg.get('CONFIG_PORT', str(APP_PORT))
+    stream_mode = cfg.get('STREAM_MODE', 'MJPEG')
+    auth_directives = '# Authentication disabled'
+    if cfg.get('ENABLE_AUTH') == '1':
+        auth_directives = (
+            '    auth_basic "PiMonitor";\n'
+            f'    auth_basic_user_file {NGINX_AUTH_FILE};'
+        )
+
+    if stream_mode == 'MJPEG':
+        stream_redirect = f'return 302 http://$host:{cfg.get("HTTP_PORT", "8080")}/stream;'
+        hls_directives = '    location /hls/ { return 404; }'
+    else:
+        stream_redirect = f'return 302 rtsp://$host:{cfg.get("RTSP_PORT", "8554")}/stream;'
+        if cfg.get('ENABLE_HLS') == '1':
+            rtsp_port = cfg.get('RTSP_PORT', '8554')
+            hls_directives = (
+                '    location /hls/ {\n'
+                f'        proxy_pass http://127.0.0.1:{rtsp_port}/;\n'
+                '        proxy_set_header Host $host;\n'
+                '        add_header Access-Control-Allow-Origin *;\n'
+                '    }'
+            )
+        else:
+            hls_directives = '    location /hls/ { return 404; }'
+
+    return f"""server {{
+    listen {site_port};
+    server_name _;
+
+    root /var/www/pimonitor;
+    index index.html;
+
+{auth_directives}
+
+    location / {{
+        try_files $uri $uri/ =404;
+    }}
+
+    location /stream {{
+        {stream_redirect}
+    }}
+
+{hls_directives}
+
+    location /api/ {{
+        proxy_pass http://127.0.0.1:{config_port}/api/;
+        proxy_set_header Host $host;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }}
+}}
+"""
+
+
+def apply_nginx_config(cfg: dict[str, str]) -> tuple[bool, Optional[str]]:
+    """Update auth and nginx config to match the runtime config."""
+    try:
+        if cfg.get('ENABLE_AUTH') == '1':
+            run_command(
+                ['htpasswd', '-cb', NGINX_AUTH_FILE, cfg.get('AUTH_USERNAME', ''), cfg.get('AUTH_PASSWORD', '')],
+                check=True,
+            )
+        with open(NGINX_SITE_PATH, 'w', encoding='utf-8') as f:
+            f.write(render_nginx_config(cfg))
+        run_command(['nginx', '-t'], check=True, capture_output=True)
+        run_command(['systemctl', NGINX_RELOAD_COMMAND, 'nginx'], check=True)
+        return True, None
+    except FileNotFoundError as exc:
+        return False, str(exc)
+    except subprocess.CalledProcessError as exc:
+        stderr = (exc.stderr or '').strip() if hasattr(exc, 'stderr') else ''
+        return False, stderr or str(exc)
+    except OSError as exc:
+        return False, str(exc)
 
 
 def wifi_network_exists(ssid: str) -> bool:
@@ -133,6 +305,63 @@ def reconfigure_wifi() -> bool:
         except subprocess.CalledProcessError:
             continue
     return False
+
+
+def list_wpa_cli_networks() -> list[dict[str, str]]:
+    """Read known networks from wpa_cli."""
+    try:
+        result = run_command(
+            ['wpa_cli', '-i', WPA_INTERFACE, 'list_networks'],
+            capture_output=True,
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return []
+    networks: list[dict[str, str]] = []
+    lines = result.stdout.splitlines()
+    for line in lines[1:]:
+        parts = line.split('\t')
+        if len(parts) < 2:
+            continue
+        networks.append({
+            'id': parts[0].strip(),
+            'ssid': parts[1].strip(),
+            'bssid': parts[2].strip() if len(parts) > 2 else '',
+            'flags': parts[3].strip() if len(parts) > 3 else '',
+        })
+    return networks
+
+
+def connect_wifi_network(ssid: str) -> tuple[bool, str]:
+    """Select and reconnect to an already-saved Wi-Fi network."""
+    reconfigure_wifi()
+    network_id: Optional[str] = None
+    for network in list_wpa_cli_networks():
+        if network.get('ssid') == ssid:
+            network_id = network.get('id')
+            break
+    if not network_id:
+        return False, f'No saved network found for SSID "{ssid}".'
+
+    commands = [
+        ['wpa_cli', '-i', WPA_INTERFACE, 'enable_network', network_id],
+        ['wpa_cli', '-i', WPA_INTERFACE, 'select_network', network_id],
+        ['wpa_cli', '-i', WPA_INTERFACE, 'reconnect'],
+        ['wpa_cli', '-i', WPA_INTERFACE, 'save_config'],
+    ]
+    for cmd in commands:
+        try:
+            result = run_command(cmd, capture_output=True, check=True)
+        except FileNotFoundError:
+            return False, 'wpa_cli is not installed on this system.'
+        except subprocess.CalledProcessError as exc:
+            stderr = (exc.stderr or '').strip()
+            stdout = (exc.stdout or '').strip()
+            return False, stderr or stdout or 'Failed to connect to the selected network.'
+        output = (result.stdout or '').strip()
+        if output and 'FAIL' in output.upper():
+            return False, output
+    return True, 'Wi-Fi reconnection requested.'
 
 
 def list_wifi_networks() -> list[dict[str, object]]:
@@ -213,11 +442,13 @@ def api_config():
             data = request.get_json(force=True) or {}
         except Exception:
             data = {}
-        # Only update keys present in the POST payload
-        for k, v in data.items():
-            cfg[k] = str(v)
+        cfg, errors = validate_config_payload(data, cfg)
+        if errors:
+            return jsonify({"status": "error", "error": ' '.join(errors)}), 400
         save_config(cfg)
-        # Restart streaming service to apply changes
+        nginx_ok, nginx_error = apply_nginx_config(cfg)
+        if not nginx_ok:
+            return jsonify({"status": "error", "error": f'Configuration saved but nginx update failed: {nginx_error}'}), 500
         restart_stream()
         return jsonify({"status": "ok", "config": cfg})
 
@@ -266,6 +497,23 @@ def api_wifi():
             return jsonify({"status": "error", "error": str(exc)}), 500
         reconfigured = reconfigure_wifi()
         return jsonify({"status": "ok", "ssid": ssid, "reconfigured": reconfigured})
+
+
+@app.route('/api/wifi/connect', methods=['POST'])
+def api_wifi_connect():
+    """Connect to one of the already-saved Wi-Fi networks."""
+    with lock:
+        try:
+            data = request.get_json(force=True) or {}
+        except Exception:
+            data = {}
+        ssid = (data.get('ssid') or '').strip()
+        if not ssid:
+            return jsonify({"status": "error", "error": "SSID is required"}), 400
+        connected, message = connect_wifi_network(ssid)
+        if not connected:
+            return jsonify({"status": "error", "error": message}), 400
+        return jsonify({"status": "ok", "ssid": ssid, "message": message})
 
 @app.route('/api/devices', methods=['GET'])
 def api_devices():
