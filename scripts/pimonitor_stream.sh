@@ -41,6 +41,20 @@ supports_format() {
   list_formats | grep -Fq "'${format}'"
 }
 
+to_ustreamer_format() {
+  case "$1" in
+    MJPG) printf 'MJPEG\n' ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
+to_v4l2rtspserver_format() {
+  case "$1" in
+    MJPEG) printf 'MJPG\n' ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
 pick_mjpeg_input_format() {
   local requested="${INPUT_FORMAT^^}"
   if [ "$requested" != "AUTO" ]; then
@@ -80,9 +94,10 @@ apply_v4l2_settings() {
 if [ "$STREAM_MODE" = "MJPEG" ]; then
   CAPTURE_FORMAT="$(pick_mjpeg_input_format)"
   apply_v4l2_settings "$CAPTURE_FORMAT"
+  USTREAMER_FORMAT="$(to_ustreamer_format "$CAPTURE_FORMAT")"
   exec /usr/bin/ustreamer \
     --device="$DEVICE" \
-    --format="$CAPTURE_FORMAT" \
+    --format="$USTREAMER_FORMAT" \
     --resolution="$RESOLUTION" \
     --desired-fps="$FPS" \
     --host=0.0.0.0 \
@@ -92,9 +107,10 @@ fi
 
 CAPTURE_FORMAT="$(pick_rtsp_input_format)"
 apply_v4l2_settings "$CAPTURE_FORMAT"
+RTSP_CAPTURE_FORMAT="$(to_v4l2rtspserver_format "$CAPTURE_FORMAT")"
 RTSP_ARGS=(
   -I 0.0.0.0
-  "-f${CAPTURE_FORMAT}"
+  "-f${RTSP_CAPTURE_FORMAT}"
   -W "$W"
   -H "$H"
   -F "$FPS"
