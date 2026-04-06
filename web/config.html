@@ -130,9 +130,15 @@
       border-radius: 12px;
       cursor: pointer;
       font-weight: 600;
+      transition: opacity 0.15s ease, transform 0.15s ease;
     }
     button:hover {
       filter: brightness(1.05);
+    }
+    button:disabled {
+      cursor: wait;
+      opacity: 0.72;
+      filter: saturate(0.8);
     }
     .message {
       margin-top: 1rem;
@@ -408,6 +414,22 @@
     });
   }
 
+  function withBusyButton(button, busyText) {
+    if (!button) {
+      return function() {};
+    }
+    var originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = busyText;
+    return function(doneText) {
+      button.disabled = false;
+      button.textContent = doneText || originalText;
+      setTimeout(function() {
+        button.textContent = originalText;
+      }, 1400);
+    };
+  }
+
   function loadWifiNetworks() {
     var container = document.getElementById('wifiNetworks');
     if (!container) {
@@ -575,6 +597,8 @@
       configForm.addEventListener('submit', function(e) {
         e.preventDefault();
         var form = e.target;
+        var submitButton = form.querySelector('button[type="submit"]');
+        var finishButton = withBusyButton(submitButton, 'Saving...');
         syncResolutionValue();
         var data = {
           RESOLUTION: form.RESOLUTION.value,
@@ -601,14 +625,17 @@
             var resp = result.data || {};
             if (!result.ok || resp.status !== 'ok') {
               var err = resp.error || 'unknown error';
+              finishButton('Save failed');
               showMessage('Failed to save configuration: ' + err, 'error');
               return;
             }
+            finishButton('Saved');
             showMessage('Configuration saved. Restarting stream...', 'success');
             loadConfig();
           })
           .catch(function(err) {
             var messageText = err && err.message ? err.message : String(err);
+            finishButton('Save failed');
             showMessage('Failed to save configuration: ' + messageText, 'error');
           });
       });
@@ -618,6 +645,8 @@
     if (recordForm) {
       recordForm.addEventListener('submit', function(e) {
         e.preventDefault();
+        var submitButton = e.target.querySelector('button[type="submit"]');
+        var finishButton = withBusyButton(submitButton, 'Recording...');
         var fd = new FormData(e.target);
         var data = {
           duration: fd.get('duration'),
@@ -633,13 +662,16 @@
             var resp = result.data || {};
             if (!result.ok || resp.status !== 'ok') {
               var err = resp.error || 'unknown error';
+              finishButton('Record failed');
               showMessage('Recording failed: ' + err, 'error');
               return;
             }
+            finishButton('Recorded');
             showMessage('Recording saved to ' + (resp.file || 'file'), 'success');
           })
           .catch(function(err) {
             var messageText = err && err.message ? err.message : String(err);
+            finishButton('Record failed');
             showMessage('Recording failed: ' + messageText, 'error');
           });
       });
@@ -649,6 +681,8 @@
     if (snapshotForm) {
       snapshotForm.addEventListener('submit', function(e) {
         e.preventDefault();
+        var submitButton = e.target.querySelector('button[type="submit"]');
+        var finishButton = withBusyButton(submitButton, 'Capturing...');
         var fd = new FormData(e.target);
         var data = {
           filename: fd.get('filename')
@@ -663,13 +697,16 @@
             var resp = result.data || {};
             if (!result.ok || resp.status !== 'ok') {
               var err = resp.error || 'unknown error';
+              finishButton('Snapshot failed');
               showMessage('Snapshot failed: ' + err, 'error');
               return;
             }
+            finishButton('Captured');
             showMessage('Snapshot saved to ' + (resp.file || 'file'), 'success');
           })
           .catch(function(err) {
             var messageText = err && err.message ? err.message : String(err);
+            finishButton('Snapshot failed');
             showMessage('Snapshot failed: ' + messageText, 'error');
           });
       });
@@ -680,6 +717,8 @@
       wifiForm.addEventListener('submit', function(e) {
         e.preventDefault();
         var form = e.target;
+        var submitButton = form.querySelector('button[type="submit"]');
+        var finishButton = withBusyButton(submitButton, 'Adding...');
         var payload = {
           ssid: form.ssid.value.trim(),
           psk: form.psk.value,
@@ -695,6 +734,7 @@
             var resp = result.data || {};
             if (!result.ok) {
               var httpError = resp.error || ('HTTP ' + result.status);
+              finishButton('Add failed');
               showMessage('Failed to add Wi-Fi network: ' + httpError, 'error');
               return;
             }
@@ -706,6 +746,7 @@
               } else {
                 note += '. Reload Wi-Fi manually to activate it.';
               }
+              finishButton('Added');
               showMessage(note, 'success');
               wifiForm.reset();
               loadWifiNetworks();
@@ -713,15 +754,18 @@
             }
             if (resp.status === 'exists') {
               var existing = resp.ssid || payload.ssid || '(unknown)';
+              finishButton('Already saved');
               showMessage('Wi-Fi network "' + existing + '" already exists.', 'info');
               loadWifiNetworks();
               return;
             }
             var errorText = resp.error || 'unknown error';
+            finishButton('Add failed');
             showMessage('Failed to add Wi-Fi network: ' + errorText, 'error');
           })
           .catch(function(err) {
             var messageText = err && err.message ? err.message : String(err);
+            finishButton('Add failed');
             showMessage('Failed to add Wi-Fi network: ' + messageText, 'error');
           });
       });
@@ -738,7 +782,7 @@
         if (!ssid) {
           return;
         }
-        button.disabled = true;
+        var finishButton = withBusyButton(button, 'Connecting...');
         fetch('/api/wifi/connect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -749,18 +793,18 @@
             var resp = result.data || {};
             if (!result.ok || resp.status !== 'ok') {
               var err = resp.error || 'unknown error';
+              finishButton('Connect failed');
               showMessage('Failed to connect to Wi-Fi network: ' + err, 'error');
               return;
             }
+            finishButton('Connecting...');
             showMessage('Requested connection to "' + ssid + '". The Pi may switch networks shortly.', 'success');
             setTimeout(loadWifiNetworks, 2000);
           })
           .catch(function(err) {
             var messageText = err && err.message ? err.message : String(err);
+            finishButton('Connect failed');
             showMessage('Failed to connect to Wi-Fi network: ' + messageText, 'error');
-          })
-          .finally(function() {
-            button.disabled = false;
           });
       });
     }
