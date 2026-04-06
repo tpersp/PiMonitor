@@ -191,11 +191,29 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
   <script>
   function addParagraph(container, html) {
     var p = document.createElement('p');
     p.innerHTML = html;
     container.appendChild(p);
+  }
+
+  function attachHlsPlayer(video, playlistUrl) {
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = playlistUrl;
+      return true;
+    }
+    if (window.Hls && window.Hls.isSupported()) {
+      var hls = new window.Hls({
+        enableWorker: true,
+        lowLatencyMode: true
+      });
+      hls.loadSource(playlistUrl);
+      hls.attachMedia(video);
+      return true;
+    }
+    return false;
   }
 
   function tryHlsFallback(container, links, hint, siteOrigin) {
@@ -216,9 +234,11 @@
         video.autoplay = true;
         video.muted = true;
         video.playsInline = true;
-        video.src = '/hls/unicast.m3u8';
+        if (!attachHlsPlayer(video, '/hls/unicast.m3u8')) {
+          throw new Error('HLS not supported by this browser');
+        }
         container.appendChild(video);
-        hint.textContent = 'The MJPEG preview was unavailable, so PiMonitor switched to the browser HLS feed.';
+        hint.textContent = 'This page is using the HLS web feed while RTSP remains available for VLC and other clients.';
         addParagraph(links, 'Browser HLS URL: <code>' + siteOrigin + '/hls/unicast.m3u8</code>');
       })
       .catch(function() {
@@ -254,7 +274,7 @@
         addParagraph(links, 'Direct MJPEG URL: <code>http://' + host + ':' + cfg.HTTP_PORT + '/stream</code>');
       } else {
         var rtspUrl = 'rtsp://' + host + ':' + cfg.RTSP_PORT + '/stream';
-        hint.textContent = 'Use VLC, ffplay, or another RTSP viewer from another device to open the live feed.';
+        hint.textContent = 'RTSP is available for VLC and other external viewers. The web page will try to use HLS for in-browser playback.';
         addParagraph(links, 'RTSP URL: <code>' + rtspUrl + '</code>');
 
         if (cfg.ENABLE_HLS === '1') {
@@ -263,12 +283,14 @@
           video.autoplay = true;
           video.muted = true;
           video.playsInline = true;
-          video.src = '/hls/unicast.m3u8';
-          container.appendChild(video);
-          addParagraph(links, 'Browser HLS URL: <code>' + siteOrigin + '/hls/unicast.m3u8</code>');
+          if (attachHlsPlayer(video, '/hls/unicast.m3u8')) {
+            container.appendChild(video);
+            addParagraph(links, 'Browser HLS URL: <code>' + siteOrigin + '/hls/unicast.m3u8</code>');
+          } else {
+            tryHlsFallback(container, links, hint, siteOrigin);
+          }
         } else {
-          addParagraph(links, 'HLS browser playback is currently disabled.');
-          tryHlsFallback(container, links, hint, siteOrigin);
+          addParagraph(links, 'HLS browser playback is currently disabled. Enable it on the configuration page for simultaneous browser and RTSP viewing.');
         }
       }
     })
