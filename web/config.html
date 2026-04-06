@@ -196,6 +196,14 @@
       display: grid;
       gap: 1rem;
     }
+    .resolution-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 0.75rem;
+    }
+    .resolution-row.hidden {
+      display: none;
+    }
     a {
       color: #b7ddff;
     }
@@ -208,6 +216,9 @@
       }
       .wifi-table {
         font-size: 0.86rem;
+      }
+      .resolution-row {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -231,8 +242,36 @@
         <h2>Stream settings</h2>
         <form id="configForm">
           <label>
-            Resolution
-            <input type="text" name="RESOLUTION" placeholder="e.g. 1280x720" required />
+            Resolution preset
+            <select name="RESOLUTION_PRESET" id="resolutionPreset">
+              <option value="640x480">640x480</option>
+              <option value="720x480">720x480</option>
+              <option value="720x576">720x576</option>
+              <option value="800x600">800x600</option>
+              <option value="1024x768">1024x768</option>
+              <option value="1280x720">1280x720 (720p)</option>
+              <option value="1280x1024">1280x1024</option>
+              <option value="1360x768">1360x768</option>
+              <option value="1600x1200">1600x1200</option>
+              <option value="1920x1080">1920x1080 (1080p)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <div class="resolution-row hidden" id="resolutionCustomRow">
+            <label>
+              Custom width
+              <input type="number" name="RESOLUTION_WIDTH" min="1" step="1" placeholder="1920" />
+            </label>
+            <label>
+              Custom height
+              <input type="number" name="RESOLUTION_HEIGHT" min="1" step="1" placeholder="1080" />
+            </label>
+          </div>
+          <input type="hidden" name="RESOLUTION" />
+          <p class="helper">Pick a common preset or choose custom for a manual width and height.</p>
+          <label>
+            Final resolution value
+            <input type="text" name="RESOLUTION_DISPLAY" readonly />
           </label>
           <label>
             Frames per second (FPS)
@@ -435,7 +474,7 @@
       .then(function(res) { return res.json(); })
       .then(function(cfg) {
         var form = document.getElementById('configForm');
-        form.RESOLUTION.value = cfg.RESOLUTION || '';
+        applyResolutionToForm(cfg.RESOLUTION || '1280x720');
         form.FPS.value = cfg.FPS || '';
         form.STREAM_MODE.value = cfg.STREAM_MODE || 'MJPEG';
         form.DEVICE.value = cfg.DEVICE || '';
@@ -449,6 +488,53 @@
         form.AUTH_USERNAME.value = cfg.AUTH_USERNAME || '';
         form.AUTH_PASSWORD.value = cfg.AUTH_PASSWORD || '';
       });
+  }
+
+  function setResolutionDisplay(form, value) {
+    form.RESOLUTION.value = value;
+    form.RESOLUTION_DISPLAY.value = value;
+  }
+
+  function applyResolutionToForm(value) {
+    var form = document.getElementById('configForm');
+    if (!form) {
+      return;
+    }
+    var preset = form.RESOLUTION_PRESET;
+    var customRow = document.getElementById('resolutionCustomRow');
+    var knownValues = Array.prototype.map.call(preset.options, function(option) {
+      return option.value;
+    });
+    if (knownValues.indexOf(value) !== -1 && value !== 'custom') {
+      preset.value = value;
+      customRow.classList.add('hidden');
+      form.RESOLUTION_WIDTH.value = '';
+      form.RESOLUTION_HEIGHT.value = '';
+      setResolutionDisplay(form, value);
+      return;
+    }
+    var parts = String(value || '').split('x');
+    preset.value = 'custom';
+    customRow.classList.remove('hidden');
+    form.RESOLUTION_WIDTH.value = parts[0] || '';
+    form.RESOLUTION_HEIGHT.value = parts[1] || '';
+    setResolutionDisplay(form, value || '');
+  }
+
+  function syncResolutionValue() {
+    var form = document.getElementById('configForm');
+    if (!form) {
+      return;
+    }
+    if (form.RESOLUTION_PRESET.value === 'custom') {
+      document.getElementById('resolutionCustomRow').classList.remove('hidden');
+      var width = String(form.RESOLUTION_WIDTH.value || '').trim();
+      var height = String(form.RESOLUTION_HEIGHT.value || '').trim();
+      setResolutionDisplay(form, (width && height) ? (width + 'x' + height) : '');
+      return;
+    }
+    document.getElementById('resolutionCustomRow').classList.add('hidden');
+    setResolutionDisplay(form, form.RESOLUTION_PRESET.value);
   }
 
   document.addEventListener('DOMContentLoaded', function() {
@@ -483,9 +569,13 @@
 
     var configForm = document.getElementById('configForm');
     if (configForm) {
+      configForm.RESOLUTION_PRESET.addEventListener('change', syncResolutionValue);
+      configForm.RESOLUTION_WIDTH.addEventListener('input', syncResolutionValue);
+      configForm.RESOLUTION_HEIGHT.addEventListener('input', syncResolutionValue);
       configForm.addEventListener('submit', function(e) {
         e.preventDefault();
         var form = e.target;
+        syncResolutionValue();
         var data = {
           RESOLUTION: form.RESOLUTION.value,
           FPS: form.FPS.value,
