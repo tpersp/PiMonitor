@@ -351,8 +351,11 @@ fi
 
 echo "[11/12] Enabling and starting services..."
 systemctl daemon-reload
-systemctl enable --now pimonitor-stream.service
-systemctl enable --now pimonitor-api.service
+systemctl enable pimonitor-stream.service
+systemctl enable pimonitor-api.service
+systemctl restart pimonitor-stream.service
+systemctl restart pimonitor-api.service
+systemctl restart nginx
 
 #############################################
 # Display information to the user
