@@ -158,7 +158,10 @@
     if (window.Hls && window.Hls.isSupported()) {
       var hls = new window.Hls({
         enableWorker: true,
-        lowLatencyMode: true
+        lowLatencyMode: true,
+        liveSyncDurationCount: 1,
+        liveMaxLatencyDurationCount: 2,
+        maxLiveSyncPlaybackRate: 1.5
       });
       hls.loadSource(playlistUrl);
       hls.attachMedia(video);

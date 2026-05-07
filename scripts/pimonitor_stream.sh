@@ -24,13 +24,24 @@ HTTP_PORT="${HTTP_PORT:-8080}"
 RTSP_PORT="${RTSP_PORT:-8554}"
 INPUT_FORMAT="${INPUT_FORMAT:-AUTO}"
 ENABLE_HLS="${ENABLE_HLS:-0}"
-HLS_SEGMENT_DURATION="${HLS_SEGMENT_DURATION:-2}"
+HLS_SEGMENT_DURATION="${HLS_SEGMENT_DURATION:-1}"
+USTREAMER_BUFFERS="${USTREAMER_BUFFERS:-2}"
+USTREAMER_WORKERS="${USTREAMER_WORKERS:-2}"
+V4L2RTSP_QUEUE_SIZE="${V4L2RTSP_QUEUE_SIZE:-1}"
 ENABLE_AUTH="${ENABLE_AUTH:-0}"
 AUTH_USERNAME="${AUTH_USERNAME:-}"
 AUTH_PASSWORD="${AUTH_PASSWORD:-}"
 
 W="${RESOLUTION%x*}"
 H="${RESOLUTION#*x}"
+
+case "$USTREAMER_BUFFERS" in (*[!0-9]*|'') USTREAMER_BUFFERS=2 ;; esac
+case "$USTREAMER_WORKERS" in (*[!0-9]*|'') USTREAMER_WORKERS=2 ;; esac
+case "$V4L2RTSP_QUEUE_SIZE" in (*[!0-9]*|'') V4L2RTSP_QUEUE_SIZE=1 ;; esac
+
+if [ "$USTREAMER_WORKERS" -gt "$USTREAMER_BUFFERS" ]; then
+  USTREAMER_WORKERS="$USTREAMER_BUFFERS"
+fi
 
 list_formats() {
   v4l2-ctl --device="$DEVICE" --list-formats-ext 2>/dev/null || true
@@ -95,14 +106,25 @@ if [ "$STREAM_MODE" = "MJPEG" ]; then
   CAPTURE_FORMAT="$(pick_mjpeg_input_format)"
   apply_v4l2_settings "$CAPTURE_FORMAT"
   USTREAMER_FORMAT="$(to_ustreamer_format "$CAPTURE_FORMAT")"
-  exec /usr/bin/ustreamer \
+  USTREAMER_ARGS=(
     --device="$DEVICE" \
     --format="$USTREAMER_FORMAT" \
     --resolution="$RESOLUTION" \
     --desired-fps="$FPS" \
     --host=0.0.0.0 \
     --port="$HTTP_PORT" \
-    --buffers=4
+    --buffers="$USTREAMER_BUFFERS" \
+    --workers="$USTREAMER_WORKERS"
+  )
+
+  if /usr/bin/ustreamer --help 2>/dev/null | grep -q -- '--persistent'; then
+    USTREAMER_ARGS+=(--persistent)
+  fi
+  if /usr/bin/ustreamer --help 2>/dev/null | grep -q -- '--dv-timings'; then
+    USTREAMER_ARGS+=(--dv-timings)
+  fi
+
+  exec /usr/bin/ustreamer "${USTREAMER_ARGS[@]}"
 fi
 
 CAPTURE_FORMAT="$(pick_rtsp_input_format)"
@@ -110,6 +132,7 @@ apply_v4l2_settings "$CAPTURE_FORMAT"
 RTSP_CAPTURE_FORMAT="$(to_v4l2rtspserver_format "$CAPTURE_FORMAT")"
 RTSP_ARGS=(
   -I 0.0.0.0
+  -Q "$V4L2RTSP_QUEUE_SIZE"
   "-f${RTSP_CAPTURE_FORMAT}"
   -W "$W"
   -H "$H"

@@ -68,13 +68,18 @@ If you prefer automation or scripting, most options can be overridden when runni
 * `HTTP_PORT` - Port used by uStreamer for MJPEG (default `8080`).
 * `RTSP_PORT` - Port used by v4l2rtspserver for RTSP/HLS (default `8554`).
 * `ENABLE_HLS` - Set to `1` to expose HLS through nginx for browser playback when using `H264_RTSP` mode.
-* `HLS_SEGMENT_DURATION` - HLS segment length in seconds (default `2`).
+* `HLS_SEGMENT_DURATION` - HLS segment length in seconds (default `1`). HLS is still much higher latency than MJPEG or RTSP because browsers buffer media segments.
+* `USTREAMER_BUFFERS` - Number of V4L2 buffers used by uStreamer in MJPEG mode (default `2`). Lower values reduce delay; increase this only if frames drop.
+* `USTREAMER_WORKERS` - Number of uStreamer JPEG worker threads (default `2`, capped by `USTREAMER_BUFFERS`).
+* `V4L2RTSP_QUEUE_SIZE` - Frame queue depth for RTSP mode (default `1`). Lower values keep viewers closer to live.
 * `SITE_PORT` - Port where nginx serves the web UI (default `80`).
 * `CONFIG_PORT` - Port used by the Flask API server (default `5000`).
 * `ENABLE_AUTH` - Set to `1` to enable HTTP basic authentication (default `0`).
 * `AUTH_USERNAME` / `AUTH_PASSWORD` - Credentials used when `ENABLE_AUTH=1` (default `admin`/`password`).
 * `RECORD_DIR` - Directory where recordings and snapshots are stored (defaults to `$HOME/pimonitor-recordings`).
 * `DISABLE_WIFI_POWERSAVE` - Set to `1` to disable Wi-Fi power saving (default `1`).
+
+For the lowest visible delay in the PiMonitor web page, use `STREAM_MODE=MJPEG` with `INPUT_FORMAT=AUTO` or `MJPG`. RTSP is useful for external players such as VLC; HLS browser playback trades latency for compatibility and will usually lag behind live input by seconds.
 
 ### Manual Updates
 

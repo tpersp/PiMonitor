@@ -28,7 +28,10 @@ CONFIG_PORT="${CONFIG_PORT:-5000}"          # port for the Flask API server
 DEVICE_INDEX="${DEVICE_INDEX:-0}"           # which capture device to use (0‑based)
 INPUT_FORMAT="${INPUT_FORMAT:-AUTO}"        # AUTO, MJPG, JPEG, H264, YUYV, UYVY...
 ENABLE_HLS="${ENABLE_HLS:-0}"              # 1 = expose HLS/DASH alongside RTSP
-HLS_SEGMENT_DURATION="${HLS_SEGMENT_DURATION:-2}" # segment duration in seconds
+HLS_SEGMENT_DURATION="${HLS_SEGMENT_DURATION:-1}" # segment duration in seconds
+USTREAMER_BUFFERS="${USTREAMER_BUFFERS:-2}" # lower values reduce MJPEG latency
+USTREAMER_WORKERS="${USTREAMER_WORKERS:-2}" # JPEG worker threads, capped by buffers
+V4L2RTSP_QUEUE_SIZE="${V4L2RTSP_QUEUE_SIZE:-1}" # lower values reduce RTSP latency
 ENABLE_AUTH="${ENABLE_AUTH:-0}"              # 1 = enable HTTP basic auth
 AUTH_USERNAME="${AUTH_USERNAME:-admin}"      # username for basic auth
 AUTH_PASSWORD="${AUTH_PASSWORD:-password}"    # password for basic auth
@@ -168,6 +171,9 @@ DEVICE=$DEVICE
 INPUT_FORMAT=$INPUT_FORMAT
 ENABLE_HLS=$ENABLE_HLS
 HLS_SEGMENT_DURATION=$HLS_SEGMENT_DURATION
+USTREAMER_BUFFERS=$USTREAMER_BUFFERS
+USTREAMER_WORKERS=$USTREAMER_WORKERS
+V4L2RTSP_QUEUE_SIZE=$V4L2RTSP_QUEUE_SIZE
 HTTP_PORT=$HTTP_PORT
 RTSP_PORT=$RTSP_PORT
 SITE_PORT=$SITE_PORT
@@ -263,7 +269,10 @@ if [ "$STREAM_MODE" = "MJPEG" ]; then
   STREAM_DIRECTIVES=$(cat <<EOF
 proxy_http_version 1.1;
         proxy_pass http://127.0.0.1:${HTTP_PORT}/stream;
+        postpone_output 0;
         proxy_buffering off;
+        proxy_ignore_headers X-Accel-Buffering;
+        proxy_max_temp_file_size 0;
         proxy_request_buffering off;
 EOF
   )
@@ -290,6 +299,7 @@ cat >/etc/nginx/sites-available/pimonitor <<NGX
 server {
     listen $SITE_PORT;
     server_name _;
+    tcp_nodelay on;
 
     root /var/www/pimonitor;
     index index.html;

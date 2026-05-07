@@ -142,7 +142,7 @@ def validate_config_payload(data: dict[str, object], current_cfg: dict[str, str]
 
     enable_hls = cfg.get('ENABLE_HLS', '0')
     cfg['ENABLE_HLS'] = '1' if str(enable_hls).strip() in ('1', 'true', 'yes', 'on') else '0'
-    hls_segment_duration = cfg.get('HLS_SEGMENT_DURATION', '2').strip() or '2'
+    hls_segment_duration = cfg.get('HLS_SEGMENT_DURATION', '1').strip() or '1'
     cfg['HLS_SEGMENT_DURATION'] = hls_segment_duration
     try:
         hls_duration = int(hls_segment_duration)
@@ -150,6 +150,23 @@ def validate_config_payload(data: dict[str, object], current_cfg: dict[str, str]
             errors.append('HLS_SEGMENT_DURATION must be between 1 and 30 seconds.')
     except ValueError:
         errors.append('HLS_SEGMENT_DURATION must be a number.')
+
+    for latency_key in ('USTREAMER_BUFFERS', 'USTREAMER_WORKERS', 'V4L2RTSP_QUEUE_SIZE'):
+        latency_value = cfg.get(latency_key, '').strip()
+        if not latency_value:
+            continue
+        try:
+            latency_number = int(latency_value)
+        except ValueError:
+            errors.append(f'{latency_key} must be a number.')
+            continue
+        if latency_number < 1 or latency_number > 16:
+            errors.append(f'{latency_key} must be between 1 and 16.')
+    try:
+        if int(cfg.get('USTREAMER_WORKERS', '1')) > int(cfg.get('USTREAMER_BUFFERS', '1')):
+            cfg['USTREAMER_WORKERS'] = cfg.get('USTREAMER_BUFFERS', '1')
+    except ValueError:
+        pass
 
     enable_auth = cfg.get('ENABLE_AUTH', '0')
     cfg['ENABLE_AUTH'] = '1' if str(enable_auth).strip() in ('1', 'true', 'yes', 'on') else '0'
@@ -183,7 +200,10 @@ def render_nginx_config(cfg: dict[str, str]) -> str:
         stream_directives = (
             'proxy_http_version 1.1;\n'
             f'        proxy_pass http://127.0.0.1:{http_port}/stream;\n'
+            '        postpone_output 0;\n'
             '        proxy_buffering off;\n'
+            '        proxy_ignore_headers X-Accel-Buffering;\n'
+            '        proxy_max_temp_file_size 0;\n'
             '        proxy_request_buffering off;'
         )
         hls_directives = '    location /hls/ { return 404; }'
@@ -204,6 +224,7 @@ def render_nginx_config(cfg: dict[str, str]) -> str:
     return f"""server {{
     listen {site_port};
     server_name _;
+    tcp_nodelay on;
 
     root /var/www/pimonitor;
     index index.html;
